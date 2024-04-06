@@ -1,3 +1,4 @@
+//******** mainwindow.cpp
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "commands.h"
@@ -80,16 +81,30 @@ MainWindow::MainWindow(QWidget *parent)
     // fifth row
     connect(ui->version, &QPushButton::clicked, this, &MainWindow::onVersion);
     connect(ui->clearLog, &QPushButton::clicked, this, &MainWindow::onClear);
+    connect(ui->turnonButton, &QPushButton::clicked, this, &MainWindow::turnOnBoard);
+
+    // sixth row
+    connect(ui->zoomoutButton, &QPushButton::clicked, this, &MainWindow::onZoomOut);
+    connect(ui->defaultZoomButton, &QPushButton::clicked, this, &MainWindow::onDefaultZoom);
+    connect(ui->zoominButton, &QPushButton::clicked, this, &MainWindow::onZoomIn);
 
     // ----------------------------------------- RHS -----------------------------------------
     setupOscilloscopeControls();
-    connect(ui->dataSlider, &QSlider::valueChanged, this, &MainWindow::onDataSliderChanged);
+
+    connect(ui->dataSlider, &QSpinBox::valueChanged, this, &MainWindow::onDataSliderChanged);
+
+    // Other connections for trigger settings
+    connect(ui->risingEdgeButton, &QPushButton::clicked, this, &MainWindow::setRisingEdgeTrigger);
+    connect(ui->fallingEdgeButton, &QPushButton::clicked, this, &MainWindow::setFallingEdgeTrigger);
+    connect(ui->triggerButton, &QPushButton::clicked, this, &MainWindow::setTriggerLevel);
+
+
 }
 
 // --------------------------------------------- Graphing
 
 void MainWindow::updateWaveforms() {
-    generateWaveformData();
+    generateWaveformData(); // creates the waves. replace with checking  in the port !!!!!!!!!!!!!!!!!!!!!!!!!!
     analyzeWaveformData(); // Call after generating data to analyze for trigger levels and log information
     drawWaveform(ui->sineWaveLabel, waveformData.channel1);
     drawWaveform(ui->squareWaveLabel, waveformData.channel2);
@@ -106,8 +121,8 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     QPen pen(Qt::black);
     painter.setPen(pen);
 
-    double xScale = labelSize.width() / static_cast<double>(data.size());
-    double yScale = (labelSize.height() / 2.0) * gain;
+    double xScale = labelSize.width() / static_cast<double>(data.size() - 1);
+    double yScale = (labelSize.height() / 2.0) * gain / zoomLevel;
 
     QPainterPath path;
     double yPos = labelSize.height() / 2.0 + data[0] * yScale;
@@ -115,19 +130,20 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
 
     for (int i = 1; i < data.size(); ++i) {
         double nextYPos = labelSize.height() / 2.0 + data[i] * yScale;
-        path.lineTo(i * xScale, nextYPos);
+        double xPos = i * xScale;
+        path.lineTo(xPos, nextYPos);
 
         // Rising Edge detection and highlighting
         if (oscSettings.triggerType == RisingEdge && data[i] < data[i-1]) {
             painter.setPen(QPen(Qt::red, 2));
-            painter.drawEllipse(QPointF(i * xScale, nextYPos), 2, 2);
+            painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
         }
 
         // Falling Edge detection and highlighting
         if (oscSettings.triggerType == FallingEdge && data[i] > data[i-1]) {
             painter.setPen(QPen(Qt::blue, 2));
-            painter.drawEllipse(QPointF(i * xScale, nextYPos), 2, 2);
+            painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
         }
     }
@@ -141,17 +157,15 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     painter.drawText(QPointF(5, 20), QString("Max: %1").arg(maxVal)); // Position these based on your UI layout
     painter.drawText(QPointF(5, labelSize.height() - 5), QString("Min: %1").arg(minVal));
 
-
     painter.setRenderHint(QPainter::Antialiasing);
     painter.drawPath(path);
     label->setPixmap(pixmap);
 }
 
-
 void MainWindow::generateWaveformData() {
     waveformData.channel1.clear();
     waveformData.channel2.clear();
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 511; ++i) {
         waveformData.channel1.append(qSin(i * 0.1 ) * dataMultiplier); // Apply multiplier
         waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
     }
@@ -213,20 +227,12 @@ void MainWindow::setupOscilloscopeControls() {
     });
 
     // data slider
-    connect(ui->dataSlider, &QSlider::valueChanged, this, [this](int value) {
-        // Update the label to display the current slider value
-        ui->dataSliderValue->setText(QString::number(value));
-
-        // Regenerate and update waveforms with the new multiplier from the slider value
+    connect(ui->dataSlider, &QSpinBox::valueChanged, this, [this]() {
         generateWaveformData();
         updateWaveforms();
     });
     ui->dataSlider->setValue(0);
 
-    // Other connections for trigger settings
-    connect(ui->risingEdgeButton, &QPushButton::clicked, this, &MainWindow::setRisingEdgeTrigger);
-    connect(ui->fallingEdgeButton, &QPushButton::clicked, this, &MainWindow::setFallingEdgeTrigger);
-    connect(ui->triggerButton, &QPushButton::clicked, this, &MainWindow::setTriggerLevel);
 
     // Initial call to updateWaveforms to draw waveforms based on initial settings
     QTimer::singleShot(0, this, &MainWindow::updateWaveforms);
@@ -252,9 +258,7 @@ void MainWindow::analyzeWaveformData() {
 }
 
 void MainWindow::onDataSliderChanged(double value) {
-    dataMultiplier = value/10;
-
-    ui->dataSliderValue->setText(QString::number(value));
+    dataMultiplier = value;
 
     // Regenerate and redraw waveforms with the new multiplier
     updateWaveforms();
@@ -262,7 +266,7 @@ void MainWindow::onDataSliderChanged(double value) {
 
 // --------------------------------------------- PEEK, POKE AND VERSION
 
-void MainWindow::onPoke(const QString &addressStr, const QString &dataStr, bool isHex) {
+void MainWindow::onPoke(const QString &addressStr, const QString &dataStr, bool isHex, bool debug) {
     if (isConnected().isEmpty()) {
         logInfo("Error: There is no comm port connection");
         return;
@@ -299,11 +303,13 @@ void MainWindow::onPoke(const QString &addressStr, const QString &dataStr, bool 
     // Log message in both decimal and hex
     QString decimalData = QString::number(data);
     QString hexData = QString::number(data, 16).toUpper();
-    QString messageLog = QString("Sent: Address = 0x%1, Data = %2 (0x%3)").arg(addressStr, decimalData, hexData);
-    logInfo(messageLog);
+    if (debug){
+        QString messageLog = QString("Sent: Address = 0x%1, Data = %2 (0x%3)").arg(addressStr, decimalData, hexData);
+        logInfo(messageLog);
+    }
 }
 
-void MainWindow::onPeek(const QString &addressStr) {
+void MainWindow::onPeek(const QString &addressStr, bool debug) {
     if (isConnected().isEmpty()) {
         logInfo("Error: There is no comm port connection");
         return;
@@ -322,9 +328,11 @@ void MainWindow::onPeek(const QString &addressStr) {
 
     // Process and display response data
     if (!responseData.isEmpty() && responseData.size() >= sizeof(uint32_t)) {
-        uint32_t responseValue;
-        memcpy(&responseValue, responseData.data(), sizeof(uint32_t));
-        logInfo("Response: " + QString::number(responseValue) + " (0x" + QString::number(responseValue, 16).toUpper() + ")");
+        if(debug){
+            uint32_t responseValue;
+            memcpy(&responseValue, responseData.data(), sizeof(uint32_t));
+            logInfo("Response: " + QString::number(responseValue) + " (0x" + QString::number(responseValue, 16).toUpper() + ")");
+        }
     } else {
         logInfo("Invalid response received");
     }
@@ -345,6 +353,38 @@ void MainWindow::onVersion() {
     } else {
         logInfo("No response received for version request");
     }
+}
+
+/*
+fffffff4 ffffffff
+fffffff0 ffffffff
+------
+length reg
+FFFFFFB8  200000
+2097152
+
+starting address reg
+FFFFFFBC
+
+go bit reg
+FFFFFFB0
+
+---- spi
+ffffffc4
+0030dad0
+*/
+
+void MainWindow::turnOnBoard() {
+    bool isHex = true;
+    bool debug = false;
+    QString dataStr = "ffffffff";
+
+    QString addressStr = "fffffff4";
+    onPoke(addressStr, dataStr, isHex, debug);
+
+
+    addressStr = "fffffff0";
+    onPoke(addressStr, dataStr, isHex, debug);
 }
 
 // --------------------------------------------- FIRMWARE
@@ -428,10 +468,29 @@ QString MainWindow::isConnected() {
     }
 }
 
+// --------------------------------------------- ZOOM LEVEL MANAGMENT
+
+void MainWindow::onZoomOut() {
+    zoomLevel *= 1.1; // Decrease the zoom level by 10%
+    updateWaveforms();
+}
+
+void MainWindow::onDefaultZoom() {
+    zoomLevel = 1.0; // Reset the zoom level to default
+    updateWaveforms();
+}
+
+void MainWindow::onZoomIn() {
+    zoomLevel *= 0.9; // Increase the zoom level by 10%
+    updateWaveforms();
+}
+
+
 // ---------------------------------------------
 void MainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event); // Call base class implementation
-    updateWaveforms(); // Update the waveforms to match the new size
+//    zoomLevel = 1.0;
+    updateWaveforms(); // Update the waveforms with the new size
 }
 
 MainWindow::~MainWindow()

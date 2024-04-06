@@ -1,3 +1,4 @@
+//******** mainwindow.h
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -52,9 +53,11 @@ private:
     double gain = 1.0;
     double dataMultiplier;
     int triggerSet = -2;
+    double zoomLevel = 1.0;
 
     void setupOscilloscopeControls();
     void applyTriggerSettings();
+
 private slots:
     void onBrowseFile();
     QString isConnected();
@@ -69,14 +72,21 @@ private slots:
     void onDataSliderChanged(double value);
 
     void onClear();
-    void onPeek(const QString &addressStr);
-    void onPoke(const QString &addressStr, const QString &dataStr, bool isHex);
+    void onPeek(const QString &addressStr, bool debug = true);
+    void onPoke(const QString &addressStr, const QString &dataStr, bool isHex, bool debug = true);
     void onVersion();
+    void turnOnBoard();
+
+    void onZoomOut();
+    void onDefaultZoom();
+    void onZoomIn();
+
     void onRefreshCOMPorts();
     void updateWaveforms();
     void onUpdateFirmware();  // Slot to handle firmware update button click
     void updateStatusLabel(const QString &status);  // Slot to update the status label
     void logInfo(const QString &message);
+//    void onDataSliderChanged(int value);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

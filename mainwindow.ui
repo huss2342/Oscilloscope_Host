@@ -25,8 +25,8 @@
       </property>
       <property name="minimumSize">
        <size>
-        <width>400</width>
-        <height>700</height>
+        <width>258</width>
+        <height>346</height>
        </size>
       </property>
       <property name="styleSheet">
@@ -250,7 +250,7 @@ background-color: rgb(255, 255, 255);
               <string>Hex</string>
              </property>
              <property name="checked">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -263,6 +263,9 @@ background-color: rgb(255, 255, 255);
               <string>Dec</string>
              </property>
              <property name="checked">
+              <bool>false</bool>
+             </property>
+             <property name="autoExclusive">
               <bool>true</bool>
              </property>
             </widget>
@@ -301,14 +304,24 @@ background-color: rgb(255, 255, 255);
         </widget>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,0">
+        <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="0,0,0">
          <item>
           <widget class="QPushButton" name="version">
            <property name="styleSheet">
             <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="text">
-            <string>version</string>
+            <string>Version</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="turnonButton">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>Turn on</string>
            </property>
           </widget>
          </item>
@@ -332,6 +345,53 @@ background-color: rgb(255, 255, 255);
         </widget>
        </item>
        <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_10" stretch="0,0,0">
+         <item>
+          <widget class="QPushButton" name="zoomoutButton">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>- Zoom Out -</string>
+           </property>
+           <property name="autoRepeat">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="defaultZoomButton">
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>Default</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="zoominButton">
+           <property name="styleSheet">
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
+           </property>
+           <property name="text">
+            <string>+ Zoom In +</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <widget class="Line" name="line_13">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPlainTextEdit" name="logConsole">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
@@ -342,7 +402,7 @@ background-color: rgb(255, 255, 255);
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>301</height>
+           <height>100</height>
           </size>
          </property>
          <property name="autoFillBackground">
@@ -369,8 +429,8 @@ background-color: rgb(255, 255, 255);
      <widget class="QWidget" name="RHS" native="true">
       <property name="minimumSize">
        <size>
-        <width>420</width>
-        <height>700</height>
+        <width>337</width>
+        <height>346</height>
        </size>
       </property>
       <property name="autoFillBackground">
@@ -390,7 +450,68 @@ background-color: rgb(255, 255, 255);
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout_9">
          <item>
+          <layout class="QVBoxLayout" name="verticalLayout_8">
+           <property name="spacing">
+            <number>4</number>
+           </property>
+           <property name="sizeConstraint">
+            <enum>QLayout::SetDefaultConstraint</enum>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLabel" name="offsetlabel">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Hardware Offset Slider</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="dataSlider">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>20</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(254, 255, 181);
+font: 700 22pt &quot;Segoe UI&quot;;</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+             <property name="accelerated">
+              <bool>true</bool>
+             </property>
+             <property name="maximum">
+              <number>4095</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
           <layout class="QVBoxLayout" name="verticalLayout_4">
+           <property name="spacing">
+            <number>4</number>
+           </property>
            <item>
             <widget class="QLabel" name="GainLabel">
              <property name="sizePolicy">
@@ -400,7 +521,7 @@ background-color: rgb(255, 255, 255);
               </sizepolicy>
              </property>
              <property name="text">
-              <string>Gain Dial</string>
+              <string>Software Gain Dial</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -416,7 +537,7 @@ background-color: rgb(255, 255, 255);
               </sizepolicy>
              </property>
              <property name="text">
-              <string>10</string>
+              <string>1</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -426,15 +547,15 @@ background-color: rgb(255, 255, 255);
            <item>
             <widget class="QDial" name="dial">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Expanding" vsizetype="Minimum">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
              </property>
              <property name="minimumSize">
               <size>
-               <width>50</width>
-               <height>50</height>
+               <width>15</width>
+               <height>15</height>
               </size>
              </property>
              <property name="styleSheet">
@@ -443,8 +564,20 @@ background-color: rgb(255, 255, 255);
              <property name="maximum">
               <number>100</number>
              </property>
+             <property name="singleStep">
+              <number>1</number>
+             </property>
              <property name="value">
-              <number>10</number>
+              <number>1</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="invertedAppearance">
+              <bool>false</bool>
+             </property>
+             <property name="invertedControls">
+              <bool>false</bool>
              </property>
              <property name="wrapping">
               <bool>false</bool>
@@ -460,68 +593,17 @@ background-color: rgb(255, 255, 255);
           </layout>
          </item>
          <item>
-          <layout class="QVBoxLayout" name="verticalLayout_8">
-           <item>
-            <widget class="QLabel" name="label">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>Test Data Slider</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="dataSliderValue">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="text">
-              <string>0</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QSlider" name="dataSlider">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="styleSheet">
-              <string notr="true"/>
-             </property>
-             <property name="minimum">
-              <number>-50</number>
-             </property>
-             <property name="maximum">
-              <number>50</number>
-             </property>
-             <property name="tracking">
-              <bool>true</bool>
-             </property>
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="tickPosition">
-              <enum>QSlider::TicksAbove</enum>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-         <item>
           <layout class="QVBoxLayout" name="verticalLayout_9">
+           <item>
+            <widget class="QPushButton" name="snapshotButton">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(255, 255, 255);</string>
+             </property>
+             <property name="text">
+              <string>Snapshot</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QPushButton" name="risingEdgeButton">
              <property name="styleSheet">
@@ -543,31 +625,37 @@ background-color: rgb(255, 255, 255);
             </widget>
            </item>
            <item>
+            <widget class="QTextEdit" name="triggerValue">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Ignored" vsizetype="Maximum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>10</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>2000</width>
+               <height>30</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(255, 255, 255);</string>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QPushButton" name="triggerButton">
              <property name="styleSheet">
               <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="text">
               <string>trigger</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QTextEdit" name="triggerValue">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="maximumSize">
-              <size>
-               <width>140</width>
-               <height>50</height>
-              </size>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
             </widget>
            </item>
@@ -585,6 +673,12 @@ background-color: rgb(255, 255, 255);
          </property>
          <property name="text">
           <string>TextLabel</string>
+         </property>
+         <property name="scaledContents">
+          <bool>false</bool>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
          </property>
         </widget>
        </item>
@@ -605,6 +699,12 @@ background-color: rgb(255, 255, 255);
          </property>
          <property name="text">
           <string>TextLabel</string>
+         </property>
+         <property name="scaledContents">
+          <bool>false</bool>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
          </property>
         </widget>
        </item>

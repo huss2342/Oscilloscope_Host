@@ -1,3 +1,4 @@
+//******** firmwareupdater.cpp
 #include "FirmwareUpdater.h"
 #include <QtSerialPort/QSerialPort>
 #include <QtSerialPort/QSerialPortInfo>
