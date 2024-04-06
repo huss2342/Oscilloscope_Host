@@ -48,15 +48,29 @@ private:
     OscilloscopeSettings oscSettings; // Oscilloscope settings
     TriggerType currentTriggerType = NoTrigger;
     WaveformData waveformData;
+
+    WaveformData currentBuffer;
+    WaveformData sampledData;
+    bool isSampling = false;
+
     double triggerLevel = 0.0;
 
     double gain = 1.0;
     double dataMultiplier;
-    int triggerSet = -2;
+
+    //bool isTrig1Set = false;
+    //bool isTrig2Set = false;
+
+    bool isTrig1Hit = false;
+    bool isTrig2Hit = false;
+
     double zoomLevel = 1.0;
 
     void setupOscilloscopeControls();
     void applyTriggerSettings();
+
+    bool snapShot = false;
+    WaveformData snapShotData;
 
 private slots:
     void onBrowseFile();
@@ -70,6 +84,7 @@ private slots:
     void generateWaveformData();
     void analyzeWaveformData();
     void onDataSliderChanged(double value);
+    void onSnapshot();
 
     void onClear();
     void onPeek(const QString &addressStr, bool debug = true);
@@ -87,6 +102,10 @@ private slots:
     void updateStatusLabel(const QString &status);  // Slot to update the status label
     void logInfo(const QString &message);
 //    void onDataSliderChanged(int value);
+
+    void onStartStopSampling();
+    void Sampling();
+    void sampleAndUpdateWaveforms();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

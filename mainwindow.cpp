@@ -97,11 +97,53 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->risingEdgeButton, &QPushButton::clicked, this, &MainWindow::setRisingEdgeTrigger);
     connect(ui->fallingEdgeButton, &QPushButton::clicked, this, &MainWindow::setFallingEdgeTrigger);
     connect(ui->triggerButton, &QPushButton::clicked, this, &MainWindow::setTriggerLevel);
+    connect(ui->snapshotButton, &QPushButton::clicked, this, &MainWindow::onSnapshot);
 
+    // start sampling
+    connect(ui->startSampling, &QPushButton::clicked, this, &MainWindow::onStartStopSampling);
 
 }
 
+void MainWindow::onStartStopSampling() {
+    if (!isSampling) {
+        isSampling = true;
+        ui->startSampling->setText("Stop Sampling");
+        sampledData.channel1.clear();
+        sampledData.channel2.clear();
+        QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
+    } else {
+        isSampling = false;
+        ui->startSampling->setText("Start Sampling");
+    }
+}
+
+void MainWindow::sampleAndUpdateWaveforms() {
+    if (isSampling) {
+        Sampling();
+        updateWaveforms();
+        QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
+    }
+}
 // --------------------------------------------- Graphing
+
+void MainWindow::Sampling() {
+    // 8 bits datain
+    QByteArray data = serial.readAll();
+    for (const auto &byte : data) {
+        double value = static_cast<double>(static_cast<quint8>(byte));
+        sampledData.channel1.append(value);
+
+        // Remove the oldest sample if the buffer size exceeds 1024
+        if (sampledData.channel1.size() > 1024) {
+            sampledData.channel1.removeFirst();
+        }
+    }
+
+    // Update the current buffer with the most recent 512 samples
+    if (sampledData.channel1.size() >= 512) {
+        currentBuffer.channel1 = sampledData.channel1.mid(sampledData.channel1.size() - 512);
+    }
+}
 
 void MainWindow::updateWaveforms() {
     generateWaveformData(); // creates the waves. replace with checking  in the port !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -157,29 +199,68 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     painter.drawText(QPointF(5, 20), QString("Max: %1").arg(maxVal)); // Position these based on your UI layout
     painter.drawText(QPointF(5, labelSize.height() - 5), QString("Min: %1").arg(minVal));
 
+    // Draw trigger line if trigger mode is set
+    if (oscSettings.triggerType == TriggerLevel) {
+        double triggerYPos = labelSize.height() / 2.0 - oscSettings.triggerLevel * yScale;
+        QPen triggerPen(Qt::darkGreen, 1);
+        painter.setPen(triggerPen);
+        painter.drawLine(0, triggerYPos, labelSize.width(), triggerYPos);
+        painter.setPen(pen);
+    }
+
     painter.setRenderHint(QPainter::Antialiasing);
     painter.drawPath(path);
     label->setPixmap(pixmap);
 }
 
 void MainWindow::generateWaveformData() {
-    waveformData.channel1.clear();
-    waveformData.channel2.clear();
-    for (int i = 0; i < 511; ++i) {
-        waveformData.channel1.append(qSin(i * 0.1 ) * dataMultiplier); // Apply multiplier
-        waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
+    if (!snapShot) {
+        if (!isTrig1Hit) {
+            waveformData.channel1.clear();
+            waveformData.channel1 = currentBuffer.channel1;
+        } else {
+            waveformData.channel1 = snapShotData.channel1;
+        }
+
+        if (!isTrig2Hit) {
+            waveformData.channel2.clear();
+            for (int i = 0; i < 511; ++i) {
+                waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
+            }
+        } else {
+            waveformData.channel2 = snapShotData.channel2;
+        }
+    } else {
+        waveformData.channel1 = snapShotData.channel1;
+        waveformData.channel2 = snapShotData.channel2;
     }
 }
 
+void MainWindow::onSnapshot() {
+    if (!snapShot) {
+        snapShotData.channel1 = waveformData.channel1;
+        snapShotData.channel2 = waveformData.channel2;
+        logInfo("SNAPSHOT ENABLED");
+        ui->triggerButton->setEnabled(false);
+        snapShot = true;
+    } else {
+        logInfo("SNAPSHOT DISABLED");
+        ui->triggerButton->setEnabled(true);
+        snapShot = false;
+    }
 
+
+    // Update the waveforms
+    updateWaveforms();
+}
 
 void MainWindow::setRisingEdgeTrigger() {
     if (oscSettings.triggerType == RisingEdge) {
         oscSettings.triggerType = NoTrigger; // Toggle off if already set
-        logInfo("Rising edge trigger deselected");
+        logInfo("Rising edge deselected");
     } else {
         oscSettings.triggerType = RisingEdge;
-        logInfo("Rising edge trigger selected");
+        logInfo("Rising edge selected");
     }
     updateWaveforms();
 }
@@ -187,10 +268,10 @@ void MainWindow::setRisingEdgeTrigger() {
 void MainWindow::setFallingEdgeTrigger() {
     if (oscSettings.triggerType == FallingEdge) {
         oscSettings.triggerType = NoTrigger; // Toggle off if already set
-        logInfo("Falling edge trigger deselected");
+        logInfo("Falling edge deselected");
     } else {
         oscSettings.triggerType = FallingEdge;
-        logInfo("Falling edge trigger selected");
+        logInfo("Falling edge selected");
     }
     updateWaveforms();
 }
@@ -199,18 +280,27 @@ void MainWindow::setTriggerLevel() {
     bool ok;
     double level = ui->triggerValue->toPlainText().toDouble(&ok);
 
-    if (!ok) {
-        ui->triggerValue->clear();
-        logInfo("ERROR: Invalid input. Please enter a valid number.");
-        return;
+    if(oscSettings.triggerType == TriggerLevel){
+        oscSettings.triggerType = NoTrigger; // Toggle off if already set
+        logInfo("Trigger deselected");
+        isTrig1Hit = false;
+        isTrig2Hit = false;
+        updateWaveforms();
+
+    } else {
+
+        if (!ok) {
+            ui->triggerValue->clear();
+            logInfo("ERROR: Invalid input. Please enter a valid number.");
+            return;
+        }
+
+        oscSettings.triggerType = TriggerLevel;
+        oscSettings.triggerLevel = level;
+        logInfo("Trigger level set to: " + QString::number(level));
+
+        updateWaveforms();
     }
-
-    oscSettings.triggerType = TriggerLevel;
-    oscSettings.triggerLevel = level;
-    logInfo("Trigger level set to: " + QString::number(level));
-    triggerSet = -2;
-
-    updateWaveforms();
 }
 
 
@@ -247,14 +337,18 @@ void MainWindow::analyzeWaveformData() {
         return oscSettings.triggerType == TriggerLevel && std::abs(value) >= oscSettings.triggerLevel;
     });
 
-    if (triggerLevelReachedChannel1 && triggerSet == -2) {
-        logInfo("Trigger Level reached: Wave 1 (sine), trigger level: " + QString::number(oscSettings.triggerLevel));
-        ++triggerSet;
+    if (triggerLevelReachedChannel1 && !isTrig1Hit) {
+        logInfo("Trigger Level reached: Wave 1, trigger level: " + QString::number(oscSettings.triggerLevel));
+        isTrig1Hit = true;
+        snapShotData.channel1 = waveformData.channel1;
     }
-    if (triggerLevelReachedChannel2 && triggerSet == -1) {
-        logInfo("Trigger Level reached: Wave 2 (square), trigger level: " + QString::number(oscSettings.triggerLevel));
-        ++triggerSet;
+
+    if (triggerLevelReachedChannel2 && !isTrig2Hit) {
+        logInfo("Trigger Level reached: Wave 2, trigger level: " + QString::number(oscSettings.triggerLevel));
+        isTrig2Hit = true;
+        snapShotData.channel2 = waveformData.channel2;
     }
+
 }
 
 void MainWindow::onDataSliderChanged(double value) {
@@ -453,6 +547,7 @@ void MainWindow::initializeSerialCommunication() {
             ui->connectButton->setText("Disconnect");
             ui->connectButton->setStyleSheet("color: green; background-color: white;");
             logInfo("Connected to " + serial.portName());
+            connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
         } else {
             logInfo("Failed to open port " + serial.portName());
         }
