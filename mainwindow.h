@@ -106,7 +106,7 @@ private slots:
     void onStartStopSampling();
     void Sampling();
     void sampleAndUpdateWaveforms();
-
+    void initDMA();
 protected:
     void resizeEvent(QResizeEvent* event) override;
 };

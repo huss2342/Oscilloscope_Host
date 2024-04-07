@@ -13,7 +13,9 @@ QByteArray uint32ToBigEndian(uint32_t value) {
 }
 
 
-Poke::Poke(QSerialPort *serial, QObject *parent) : QObject(parent), serial(serial) {}
+Poke::Poke(QSerialPort* serial, QObject* parent) : QObject(parent), serial(serial) {}
+Peek::Peek(QSerialPort* serial, QObject* parent) : QObject(parent), serial(serial) {}
+Version::Version(QSerialPort* serial, QObject* parent) : QObject(parent), serial(serial) {}
 
 void Poke::execute(uint32_t address, uint32_t data) {
     QByteArray message;
@@ -28,7 +30,6 @@ void Poke::execute(uint32_t address, uint32_t data) {
     serial->flush();
 }
 
-Peek::Peek(QSerialPort *serial, QObject *parent) : QObject(parent), serial(serial) {}
 
 QByteArray Peek::execute(uint32_t address) {
     QByteArray message;
@@ -48,10 +49,6 @@ QByteArray Peek::execute(uint32_t address) {
     }
     return QByteArray(); // Return empty if no response
 }
-
-
-
-Version::Version(QSerialPort *serial, QObject *parent) : QObject(parent), serial(serial) {}
 
 QByteArray Version::execute() {
     QByteArray message;

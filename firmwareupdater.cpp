@@ -7,7 +7,7 @@
 #include <QDateTime>
 
 FirmwareUpdater::FirmwareUpdater(const QString &comPortName, const QString &firmwarePath, QObject *parent)
-    : QObject(parent), portName(comPortName), firmwarePath(firmwarePath), baudRate(115200) {}
+    : QObject(parent), portName(comPortName), firmwarePath(firmwarePath), baudRate(921600) {}
 
 int FirmwareUpdater::getLineCount(QTextStream &in) {
     QString line;

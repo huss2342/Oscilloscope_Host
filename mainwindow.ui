@@ -331,7 +331,7 @@ background-color: rgb(255, 255, 255);
             <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="text">
-            <string>Clear log</string>
+            <string>Clear Log</string>
            </property>
           </widget>
          </item>
@@ -519,18 +519,22 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
             <number>4</number>
            </property>
            <item>
-            <widget class="QLabel" name="GainLabel">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
+            <widget class="QPushButton" name="InitDMA">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="text">
-              <string>Software Gain Dial</string>
+              <string>Initialize DMA Engine</string>
              </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="startSampling">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(255, 255, 255);</string>
+             </property>
+             <property name="text">
+              <string>Start Sampling</string>
              </property>
             </widget>
            </item>
@@ -563,8 +567,8 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
              </property>
              <property name="minimumSize">
               <size>
-               <width>15</width>
-               <height>15</height>
+               <width>5</width>
+               <height>5</height>
               </size>
              </property>
              <property name="styleSheet">
@@ -619,7 +623,7 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
               <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="text">
-              <string>rising edge</string>
+              <string>Rising Edge</string>
              </property>
             </widget>
            </item>
@@ -629,7 +633,7 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
               <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="text">
-              <string>falling edge</string>
+              <string>Falling Edge</string>
              </property>
             </widget>
            </item>
@@ -664,7 +668,7 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
               <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="text">
-              <string>trigger</string>
+              <string>Trigger</string>
              </property>
             </widget>
            </item>
@@ -681,7 +685,7 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
           </sizepolicy>
          </property>
          <property name="text">
-          <string>TextLabel</string>
+          <string>Channel1</string>
          </property>
          <property name="scaledContents">
           <bool>false</bool>
@@ -689,31 +693,89 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
          </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTabWidget" name="tabWidget">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>20</width>
+           <height>340</height>
+          </size>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="tab">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <attribute name="title">
+           <string>Tab 1</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <item>
+            <widget class="QLabel" name="squareWaveLabel">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Channel2</string>
+             </property>
+             <property name="scaledContents">
+              <bool>false</bool>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="tab_2">
+          <attribute name="title">
+           <string>Tab 2</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="verticalLayout_7">
+           <item>
+            <widget class="QLabel" name="fft">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>fft</string>
+             </property>
+             <property name="scaledContents">
+              <bool>false</bool>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </widget>
        </item>
        <item>
         <widget class="Line" name="line_5">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLabel" name="squareWaveLabel">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="text">
-          <string>TextLabel</string>
-         </property>
-         <property name="scaledContents">
-          <bool>false</bool>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
          </property>
         </widget>
        </item>

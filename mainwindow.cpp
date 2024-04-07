@@ -12,6 +12,14 @@
 #include <QValidator>
 #include <QPainterPath>
 
+/*
+921600
+------
+---- spi
+ffffffc4
+0030dad0
+*/
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -102,18 +110,50 @@ MainWindow::MainWindow(QWidget *parent)
     // start sampling
     connect(ui->startSampling, &QPushButton::clicked, this, &MainWindow::onStartStopSampling);
 
+    // init DMA
+    connect(ui->InitDMA, &QPushButton::clicked, this, &MainWindow::initDMA);
+
 }
 
 void MainWindow::onStartStopSampling() {
+    if (isConnected().isEmpty()) {
+        logInfo("Error: There is no comm port connection");
+        return;
+    }
     if (!isSampling) {
         isSampling = true;
+        logInfo("..... MEASURING .....");
         ui->startSampling->setText("Stop Sampling");
         sampledData.channel1.clear();
         sampledData.channel2.clear();
+        connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
         QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
+
+        // GO BIT
+        QString addressStr = "FFFFFFB0";
+        QString dataStr = "1";
+        bool isHex = true;
+        bool debug = false;
+        onPoke(addressStr, dataStr, isHex, debug);
+
     } else {
         isSampling = false;
         ui->startSampling->setText("Start Sampling");
+        logInfo("..... STOPPING .....");
+
+        // GO BIT
+        QString addressStr = "FFFFFFB0";
+        QString dataStr = "0";
+        bool isHex = true;
+        bool debug = false;
+        onPoke(addressStr, dataStr, isHex, debug);
+
+        // Read and discard all available data in the serial buffer
+//        while (serial.bytesAvailable() > 0) {
+//            serial.readAll();
+//        }
+
+        disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
     }
 }
 
@@ -129,12 +169,21 @@ void MainWindow::sampleAndUpdateWaveforms() {
 void MainWindow::Sampling() {
     // 8 bits datain
     QByteArray data = serial.readAll();
+
     for (const auto &byte : data) {
-        double value = static_cast<double>(static_cast<quint8>(byte));
+        quint8 unsignedValue = static_cast<quint8>(byte);
+        int8_t signedValue = static_cast<int8_t>(unsignedValue);
+
+        double value = static_cast<double>(signedValue);
         sampledData.channel1.append(value);
 
+        // debugging
+        if(unsignedValue < 0 || signedValue < 0 || value < 0){
+            qDebug() << "usVal: " << unsignedValue << "sVal" << signedValue  << "val" << value;
+        }
+
         // Remove the oldest sample if the buffer size exceeds 1024
-        if (sampledData.channel1.size() > 1024) {
+        if (sampledData.channel1.size() > 512 * 10) {
             sampledData.channel1.removeFirst();
         }
     }
@@ -167,11 +216,11 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     double yScale = (labelSize.height() / 2.0) * gain / zoomLevel;
 
     QPainterPath path;
-    double yPos = labelSize.height() / 2.0 + data[0] * yScale;
+    double yPos = labelSize.height() / 2.0 - data[0] * yScale; // Corrected y-position calculation
     path.moveTo(0, yPos);
 
     for (int i = 1; i < data.size(); ++i) {
-        double nextYPos = labelSize.height() / 2.0 + data[i] * yScale;
+        double nextYPos = labelSize.height() / 2.0 - data[i] * yScale; // Corrected y-position calculation
         double xPos = i * xScale;
         path.lineTo(xPos, nextYPos);
 
@@ -201,7 +250,7 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
 
     // Draw trigger line if trigger mode is set
     if (oscSettings.triggerType == TriggerLevel) {
-        double triggerYPos = labelSize.height() / 2.0 - oscSettings.triggerLevel * yScale;
+        double triggerYPos = labelSize.height() / 2.0 - oscSettings.triggerLevel * yScale; // Corrected trigger line position
         QPen triggerPen(Qt::darkGreen, 1);
         painter.setPen(triggerPen);
         painter.drawLine(0, triggerYPos, labelSize.width(), triggerYPos);
@@ -217,7 +266,9 @@ void MainWindow::generateWaveformData() {
     if (!snapShot) {
         if (!isTrig1Hit) {
             waveformData.channel1.clear();
-            waveformData.channel1 = currentBuffer.channel1;
+            if (!currentBuffer.channel1.isEmpty()) {
+                waveformData.channel1 = currentBuffer.channel1;
+            }
         } else {
             waveformData.channel1 = snapShotData.channel1;
         }
@@ -409,6 +460,11 @@ void MainWindow::onPeek(const QString &addressStr, bool debug) {
         return;
     }
 
+    if (isSampling) {
+        logInfo("Error: Cannot peek while sampling is active");
+        return;
+    }
+
     bool ok;
     uint64_t longAddress = addressStr.toULongLong(&ok, 16);
     uint32_t address = static_cast<uint32_t>(longAddress);
@@ -449,24 +505,22 @@ void MainWindow::onVersion() {
     }
 }
 
-/*
-fffffff4 ffffffff
-fffffff0 ffffffff
-------
-length reg
-FFFFFFB8  200000
-2097152
+void MainWindow::initDMA(){
+    bool isHex = true;
+    bool debug = false;
 
-starting address reg
-FFFFFFBC
+    // STARTING ADDRESS
+    QString addressStr = "FFFFFFBC";
+    QString dataStr = "FFFFFFE4";
+    onPoke(addressStr, dataStr, isHex, debug);
 
-go bit reg
-FFFFFFB0
+    // LENGTH
+    addressStr = "FFFFFFB8";
+    dataStr = "1";
+    onPoke(addressStr, dataStr, isHex, debug);
 
----- spi
-ffffffc4
-0030dad0
-*/
+
+}
 
 void MainWindow::turnOnBoard() {
     bool isHex = true;
@@ -479,6 +533,8 @@ void MainWindow::turnOnBoard() {
 
     addressStr = "fffffff0";
     onPoke(addressStr, dataStr, isHex, debug);
+
+    logInfo("Board turned on");
 }
 
 // --------------------------------------------- FIRMWARE
@@ -542,18 +598,16 @@ void MainWindow::initializeSerialCommunication() {
         logInfo("Disconnected from "+ serial.portName());
     } else {
         serial.setPortName(ui->comPortComboBox->currentText()); // Ensure this is correct
-        serial.setBaudRate(QSerialPort::Baud115200);
+        serial.setBaudRate(921600);
         if (serial.open(QIODevice::ReadWrite)) {
             ui->connectButton->setText("Disconnect");
             ui->connectButton->setStyleSheet("color: green; background-color: white;");
             logInfo("Connected to " + serial.portName());
-            connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
         } else {
             logInfo("Failed to open port " + serial.portName());
         }
     }
 }
-
 
 QString MainWindow::isConnected() {
     if (serial.isOpen()) {
