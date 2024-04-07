@@ -3,14 +3,12 @@
 #include "ui_mainwindow.h"
 #include "commands.h"
 #include <QTimer>
-#include <QPainter>
 #include <firmwareupdater.h>
-#include <cmath>
 #include <QFileDialog>
 #include <QSerialPortInfo>
 #include <QRegularExpression>
 #include <QValidator>
-#include <QPainterPath>
+
 
 /*
 921600
@@ -23,6 +21,14 @@ ffffffc4
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_isSampling(false)
+    , m_triggerLevel(0.0)
+    , m_gain(1.0)
+    , m_dataMultiplier(1.0)
+    , m_isTrig1Hit(false)
+    , m_isTrig2Hit(false)
+    , m_zoomLevel(30)
+    , m_snapShot(false)
 {
     ui->setupUi(this);
 
@@ -113,6 +119,15 @@ MainWindow::MainWindow(QWidget *parent)
     // init DMA
     connect(ui->InitDMA, &QPushButton::clicked, this, &MainWindow::initDMA);
 
+    // Create and connect the WaveformThread
+    m_waveformThread = new WaveformThread(this);
+    connect(m_waveformThread, &WaveformThread::waveformDrawn, this, &MainWindow::onWaveformDrawn);
+}
+
+void MainWindow::onWaveformDrawn(){
+    // do anything else after the  waveforms are drawn.
+    // just incase i want to do the calculations here and
+    // leave the drawing only to be on the thread maybe?
 }
 
 void MainWindow::onStartStopSampling() {
@@ -120,12 +135,12 @@ void MainWindow::onStartStopSampling() {
         logInfo("Error: There is no comm port connection");
         return;
     }
-    if (!isSampling) {
-        isSampling = true;
+    if (!m_isSampling) {
+        m_isSampling = true;
         logInfo("..... MEASURING .....");
         ui->startSampling->setText("Stop Sampling");
-        sampledData.channel1.clear();
-        sampledData.channel2.clear();
+        m_sampledData.channel1.clear();
+        m_sampledData.channel2.clear();
         connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
         QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
 
@@ -137,7 +152,7 @@ void MainWindow::onStartStopSampling() {
         onPoke(addressStr, dataStr, isHex, debug);
 
     } else {
-        isSampling = false;
+        m_isSampling = false;
         ui->startSampling->setText("Start Sampling");
         logInfo("..... STOPPING .....");
 
@@ -158,7 +173,7 @@ void MainWindow::onStartStopSampling() {
 }
 
 void MainWindow::sampleAndUpdateWaveforms() {
-    if (isSampling) {
+    if (m_isSampling) {
         Sampling();
         updateWaveforms();
         QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
@@ -175,7 +190,7 @@ void MainWindow::Sampling() {
         int8_t signedValue = static_cast<int8_t>(unsignedValue);
 
         double value = static_cast<double>(signedValue);
-        sampledData.channel1.append(value);
+        m_sampledData.channel1.append(value);
 
         // debugging
         if(unsignedValue < 0 || signedValue < 0 || value < 0){
@@ -183,121 +198,63 @@ void MainWindow::Sampling() {
         }
 
         // Remove the oldest sample if the buffer size exceeds 1024
-        if (sampledData.channel1.size() > 512 * 10) {
-            sampledData.channel1.removeFirst();
+        if (m_sampledData.channel1.size() > 512 * 10) {
+            m_sampledData.channel1.removeFirst();
         }
     }
 
     // Update the current buffer with the most recent 512 samples
-    if (sampledData.channel1.size() >= 512) {
-        currentBuffer.channel1 = sampledData.channel1.mid(sampledData.channel1.size() - 512);
+    if (m_sampledData.channel1.size() >= 512) {
+        m_currentBuffer.channel1 = m_sampledData.channel1.mid(m_sampledData.channel1.size() - 512);
     }
 }
 
 void MainWindow::updateWaveforms() {
-    generateWaveformData(); // creates the waves. replace with checking  in the port !!!!!!!!!!!!!!!!!!!!!!!!!!
-    analyzeWaveformData(); // Call after generating data to analyze for trigger levels and log information
-    drawWaveform(ui->sineWaveLabel, waveformData.channel1);
-    drawWaveform(ui->squareWaveLabel, waveformData.channel2);
+    generateWaveformData();
+    m_waveformThread->setWaveformData(m_waveformData);
+    m_waveformThread->setLabels(ui->sineWaveLabel, ui->squareWaveLabel);
+    m_waveformThread->setOscilloscopeSettings(m_oscSettings);
+    m_waveformThread->setZoomLevel(m_zoomLevel);
+    m_waveformThread->start();
 }
 
-void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
-    if (data.isEmpty()) return;
-
-    // Setup for drawing
-    QSize labelSize = label->size();
-    QPixmap pixmap(labelSize);
-    pixmap.fill(Qt::white);
-    QPainter painter(&pixmap);
-    QPen pen(Qt::black);
-    painter.setPen(pen);
-
-    double xScale = labelSize.width() / static_cast<double>(data.size() - 1);
-    double yScale = (labelSize.height() / 2.0) * gain / zoomLevel;
-
-    QPainterPath path;
-    double yPos = labelSize.height() / 2.0 - data[0] * yScale; // Corrected y-position calculation
-    path.moveTo(0, yPos);
-
-    for (int i = 1; i < data.size(); ++i) {
-        double nextYPos = labelSize.height() / 2.0 - data[i] * yScale; // Corrected y-position calculation
-        double xPos = i * xScale;
-        path.lineTo(xPos, nextYPos);
-
-        // Rising Edge detection and highlighting
-        if (oscSettings.triggerType == RisingEdge && data[i] < data[i-1]) {
-            painter.setPen(QPen(Qt::red, 2));
-            painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
-            painter.setPen(pen);
-        }
-
-        // Falling Edge detection and highlighting
-        if (oscSettings.triggerType == FallingEdge && data[i] > data[i-1]) {
-            painter.setPen(QPen(Qt::blue, 2));
-            painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
-            painter.setPen(pen);
-        }
-    }
-
-    // Calculate max and min values from data
-    double maxVal = *std::max_element(data.constBegin(), data.constEnd());
-    double minVal = *std::min_element(data.constBegin(), data.constEnd());
-
-    // Draw max and min values on the graph
-    painter.setPen(Qt::black); // Use black pen for text
-    painter.drawText(QPointF(5, 20), QString("Max: %1").arg(maxVal)); // Position these based on your UI layout
-    painter.drawText(QPointF(5, labelSize.height() - 5), QString("Min: %1").arg(minVal));
-
-    // Draw trigger line if trigger mode is set
-    if (oscSettings.triggerType == TriggerLevel) {
-        double triggerYPos = labelSize.height() / 2.0 - oscSettings.triggerLevel * yScale; // Corrected trigger line position
-        QPen triggerPen(Qt::darkGreen, 1);
-        painter.setPen(triggerPen);
-        painter.drawLine(0, triggerYPos, labelSize.width(), triggerYPos);
-        painter.setPen(pen);
-    }
-
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.drawPath(path);
-    label->setPixmap(pixmap);
-}
 
 void MainWindow::generateWaveformData() {
-    if (!snapShot) {
-        if (!isTrig1Hit) {
-            waveformData.channel1.clear();
-            if (!currentBuffer.channel1.isEmpty()) {
-                waveformData.channel1 = currentBuffer.channel1;
+    if (!m_snapShot) {
+        if (!m_isTrig1Hit) {
+            m_waveformData.channel1.clear();
+            if (!m_currentBuffer.channel1.isEmpty()) {
+                m_waveformData.channel1 = m_currentBuffer.channel1;
             }
         } else {
-            waveformData.channel1 = snapShotData.channel1;
+            m_waveformData.channel1 = m_snapShotData.channel1;
         }
 
-        if (!isTrig2Hit) {
-            waveformData.channel2.clear();
+        if (!m_isTrig2Hit) {
+            m_waveformData.channel2.clear();
             for (int i = 0; i < 511; ++i) {
-                waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
+                m_waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * m_dataMultiplier); // Apply multiplier
             }
         } else {
-            waveformData.channel2 = snapShotData.channel2;
+            m_waveformData.channel2 = m_snapShotData.channel2;
         }
     } else {
-        waveformData.channel1 = snapShotData.channel1;
-        waveformData.channel2 = snapShotData.channel2;
+        m_waveformData.channel1 = m_snapShotData.channel1;
+        m_waveformData.channel2 = m_snapShotData.channel2;
     }
 }
 
 void MainWindow::onSnapshot() {
-    if (!snapShot) {
-        snapShotData.channel1 = waveformData.channel1;
-        snapShotData.channel2 = waveformData.channel2;
+    if (!m_snapShot) {
+        m_snapShotData.channel1 = m_waveformData.channel1;
+        m_snapShotData.channel2 = m_waveformData.channel2;
         logInfo("SNAPSHOT ENABLED");
         ui->triggerButton->setEnabled(false);
-        snapShot = true;
+        m_snapShot = true;
     } else {
         logInfo("SNAPSHOT DISABLED");
         ui->triggerButton->setEnabled(true);
-        snapShot = false;
+        m_snapShot = false;
     }
 
 
@@ -306,22 +263,22 @@ void MainWindow::onSnapshot() {
 }
 
 void MainWindow::setRisingEdgeTrigger() {
-    if (oscSettings.triggerType == RisingEdge) {
-        oscSettings.triggerType = NoTrigger; // Toggle off if already set
+    if (m_oscSettings.triggerType == RisingEdge) {
+        m_oscSettings.triggerType = NoTrigger; // Toggle off if already set
         logInfo("Rising edge deselected");
     } else {
-        oscSettings.triggerType = RisingEdge;
+        m_oscSettings.triggerType = RisingEdge;
         logInfo("Rising edge selected");
     }
     updateWaveforms();
 }
 
 void MainWindow::setFallingEdgeTrigger() {
-    if (oscSettings.triggerType == FallingEdge) {
-        oscSettings.triggerType = NoTrigger; // Toggle off if already set
+    if (m_oscSettings.triggerType == FallingEdge) {
+        m_oscSettings.triggerType = NoTrigger; // Toggle off if already set
         logInfo("Falling edge deselected");
     } else {
-        oscSettings.triggerType = FallingEdge;
+        m_oscSettings.triggerType = FallingEdge;
         logInfo("Falling edge selected");
     }
     updateWaveforms();
@@ -331,11 +288,11 @@ void MainWindow::setTriggerLevel() {
     bool ok;
     double level = ui->triggerValue->toPlainText().toDouble(&ok);
 
-    if(oscSettings.triggerType == TriggerLevel){
-        oscSettings.triggerType = NoTrigger; // Toggle off if already set
+    if(m_oscSettings.triggerType == TriggerLevel){
+        m_oscSettings.triggerType = NoTrigger; // Toggle off if already set
         logInfo("Trigger deselected");
-        isTrig1Hit = false;
-        isTrig2Hit = false;
+        m_isTrig1Hit = false;
+        m_isTrig2Hit = false;
         updateWaveforms();
 
     } else {
@@ -346,8 +303,8 @@ void MainWindow::setTriggerLevel() {
             return;
         }
 
-        oscSettings.triggerType = TriggerLevel;
-        oscSettings.triggerLevel = level;
+        m_oscSettings.triggerType = TriggerLevel;
+        m_oscSettings.triggerLevel = level;
         logInfo("Trigger level set to: " + QString::number(level));
 
         updateWaveforms();
@@ -357,12 +314,12 @@ void MainWindow::setTriggerLevel() {
 
 void MainWindow::setupOscilloscopeControls() {
     // Initialize gain based on the dial's initial value
-    gain = ui->dial->value() / 100.0;
+    m_gain = ui->dial->value() / 100.0;
     ui->dialValueLabel->setText(QString::number(ui->dial->value()));
 
     // Connect the dial for gain adjustments
     connect(ui->dial, &QDial::valueChanged, this, [this](int value) {
-        gain = value / 100.0;
+        m_gain = value / 100.0;
         ui->dialValueLabel->setText(QString::number(value));
         updateWaveforms();
     });
@@ -379,31 +336,9 @@ void MainWindow::setupOscilloscopeControls() {
     QTimer::singleShot(0, this, &MainWindow::updateWaveforms);
 }
 
-void MainWindow::analyzeWaveformData() {
-    bool triggerLevelReachedChannel1 = std::any_of(waveformData.channel1.begin(), waveformData.channel1.end(), [this](double value) {
-        return oscSettings.triggerType == TriggerLevel && std::abs(value) >= oscSettings.triggerLevel;
-    });
-
-    bool triggerLevelReachedChannel2 = std::any_of(waveformData.channel2.begin(), waveformData.channel2.end(), [this](double value) {
-        return oscSettings.triggerType == TriggerLevel && std::abs(value) >= oscSettings.triggerLevel;
-    });
-
-    if (triggerLevelReachedChannel1 && !isTrig1Hit) {
-        logInfo("Trigger Level reached: Wave 1, trigger level: " + QString::number(oscSettings.triggerLevel));
-        isTrig1Hit = true;
-        snapShotData.channel1 = waveformData.channel1;
-    }
-
-    if (triggerLevelReachedChannel2 && !isTrig2Hit) {
-        logInfo("Trigger Level reached: Wave 2, trigger level: " + QString::number(oscSettings.triggerLevel));
-        isTrig2Hit = true;
-        snapShotData.channel2 = waveformData.channel2;
-    }
-
-}
 
 void MainWindow::onDataSliderChanged(double value) {
-    dataMultiplier = value;
+    m_dataMultiplier = value;
 
     // Regenerate and redraw waveforms with the new multiplier
     updateWaveforms();
@@ -460,7 +395,7 @@ void MainWindow::onPeek(const QString &addressStr, bool debug) {
         return;
     }
 
-    if (isSampling) {
+    if (m_isSampling) {
         logInfo("Error: Cannot peek while sampling is active");
         return;
     }
@@ -620,17 +555,17 @@ QString MainWindow::isConnected() {
 // --------------------------------------------- ZOOM LEVEL MANAGMENT
 
 void MainWindow::onZoomOut() {
-    zoomLevel *= 1.1; // Decrease the zoom level by 10%
+    m_zoomLevel *= 1.1; // Decrease the zoom level by 10%
     updateWaveforms();
 }
 
 void MainWindow::onDefaultZoom() {
-    zoomLevel = 1.0; // Reset the zoom level to default
+    m_zoomLevel = 1.0; // Reset the zoom level to default
     updateWaveforms();
 }
 
 void MainWindow::onZoomIn() {
-    zoomLevel *= 0.9; // Increase the zoom level by 10%
+    m_zoomLevel *= 0.9; // Increase the zoom level by 10%
     updateWaveforms();
 }
 
@@ -644,5 +579,13 @@ void MainWindow::resizeEvent(QResizeEvent* event) {
 
 MainWindow::~MainWindow()
 {
+    // Stop and delete the WaveformThread
+    if (m_waveformThread) {
+        m_waveformThread->requestInterruption(); // Request the thread to stop
+        m_waveformThread->wait(); // Wait for the thread to finish
+        delete m_waveformThread;
+        m_waveformThread = nullptr;
+    }
+
     delete ui;
 }

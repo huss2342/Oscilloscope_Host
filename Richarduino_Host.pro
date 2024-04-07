@@ -11,12 +11,16 @@ SOURCES += \
     commands.cpp \
     firmwareupdater.cpp \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    waveformrenderer.cpp \
+    waveformthread.cpp
 
 HEADERS += \
     commands.h \
     firmwareupdater.h \
-    mainwindow.h
+    mainwindow.h \
+    waveformrenderer.h \
+    waveformthread.h
 
 FORMS += \
     mainwindow.ui
