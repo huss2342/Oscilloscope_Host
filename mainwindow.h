@@ -5,6 +5,8 @@
 #include <QMainWindow>
 #include <QSerialPort>
 #include "waveformthread.h"
+#include <QMutex>
+#include <QWaitCondition>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -42,6 +44,8 @@ private:
     void setupOscilloscopeControls();
     void applyTriggerSettings();
 
+    QMutex dataMutex;
+    QWaitCondition dataCondition;
 private slots:
     void onBrowseFile();
     QString isConnected();
@@ -49,7 +53,7 @@ private slots:
     void setFallingEdgeTrigger();
     void setTriggerLevel();
     void generateWaveformData();
-    void onDataSliderChanged(double value);
+    void onDataSliderChanged(int value);
     void onSnapshot();
     void onClear();
     void onPeek(const QString &addressStr, bool debug = true);
@@ -69,7 +73,8 @@ private slots:
     void sampleAndUpdateWaveforms();
     void initDMA();
     void onWaveformDrawn();
-
+    void handleShiftValueChanged();
+    void onDataSliderInit();
 protected:
     void resizeEvent(QResizeEvent* event) override;
 };

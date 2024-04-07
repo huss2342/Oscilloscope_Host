@@ -24,7 +24,13 @@ struct OscilloscopeSettings {
 class WaveformRenderer
 {
 public:
-    WaveformRenderer();
+    WaveformRenderer()
+        : m_isTrig1Hit(false)
+        , m_isTrig2Hit(false)
+        , m_zoomLevel(1.0)
+        , m_gain(1.0)
+    {
+    }
 
     void drawWaveform(QLabel *label, const QVector<double> &data);
     void analyzeWaveformData(const WaveformData &data);
@@ -36,15 +42,17 @@ public:
     void setIsTrig1Hit(bool hit);
     void setIsTrig2Hit(bool hit);
     void setSnapShotData(const WaveformData &data);
+    bool m_isTrig1Hit;
+    bool m_isTrig2Hit;
+    WaveformData m_snapShotData;
+    qint32 m_shiftValue;
 
 private:
     OscilloscopeSettings m_oscSettings;
     WaveformData m_waveformData;
     double m_zoomLevel;
     double m_gain;
-    bool m_isTrig1Hit;
-    bool m_isTrig2Hit;
-    WaveformData m_snapShotData;
+
 };
 
 #endif // WAVEFORMRENDERER_H

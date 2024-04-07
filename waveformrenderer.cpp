@@ -7,14 +7,9 @@
 #include <QPainterPath>
 #include <algorithm>
 #include <cmath>
+#include <QMutex>
+#include <QWaitCondition>
 
-WaveformRenderer::WaveformRenderer()
-    : m_zoomLevel(1.0)
-    , m_gain(1.0)
-    , m_isTrig1Hit(false)
-    , m_isTrig2Hit(false)
-{
-}
 
 void WaveformRenderer::drawWaveform(QLabel *label, const QVector<double> &data)
 {
@@ -32,11 +27,17 @@ void WaveformRenderer::drawWaveform(QLabel *label, const QVector<double> &data)
     double yScale = (labelSize.height() / 2.0) * m_gain / m_zoomLevel;
 
     QPainterPath path;
-    double yPos = labelSize.height() / 2.0 - data[0] * yScale; // Corrected y-position calculation
+    double yPos = labelSize.height() / 2.0 - data[0] * yScale - m_shiftValue; // Corrected y-position calculation
     path.moveTo(0, yPos);
 
+    // Draw a horizontal line at the middle of the screen
+    painter.setPen(Qt::gray);
+    double midY = labelSize.height() / 2.0;
+    painter.drawLine(0, midY, labelSize.width(), midY);
+    painter.setPen(pen);
+
     for (int i = 1; i < data.size(); ++i) {
-        double nextYPos = labelSize.height() / 2.0 - data[i] * yScale; // Corrected y-position calculation
+        double nextYPos = labelSize.height() / 2.0 - data[i] * yScale - m_shiftValue; // Corrected y-position calculation
         double xPos = i * xScale;
         path.lineTo(xPos, nextYPos);
 

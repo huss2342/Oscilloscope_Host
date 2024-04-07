@@ -8,14 +8,15 @@
 #include <QSerialPortInfo>
 #include <QRegularExpression>
 #include <QValidator>
+#include <QMutex>
+#include <QWaitCondition>
+
+
 
 
 /*
 921600
-------
----- spi
-ffffffc4
-0030dad0
+
 */
 
 MainWindow::MainWindow(QWidget *parent)
@@ -122,12 +123,77 @@ MainWindow::MainWindow(QWidget *parent)
     // Create and connect the WaveformThread
     m_waveformThread = new WaveformThread(this);
     connect(m_waveformThread, &WaveformThread::waveformDrawn, this, &MainWindow::onWaveformDrawn);
+
+    // Connect the shiftGraphSpinner's valueChanged signal
+    connect(ui->shiftGraphSpinner, &QSpinBox::valueChanged, this, &MainWindow::handleShiftValueChanged);
+}
+
+/////// SPI
+/*
+------
+---- spi
+ffffffc4
+0030dad0 <-example value = 0xdad
+*/
+void MainWindow::handleShiftValueChanged()
+{
+    m_waveformThread->setShiftValue(ui->shiftGraphSpinner->value());
+}
+
+void MainWindow::onDataSliderChanged(int value) {
+    m_dataMultiplier = value;
+
+    // send 0030---0
+    // the three dashes are the values
+
+    QString addressStr = "ffffffc4";
+    int data = 0x00300000 | (value << 4);
+    QString dataStr = QString::number(data, 16); // Convert to hexadecimal string
+
+    bool isHex = true;
+    bool debug = false;
+
+    onPoke(addressStr, dataStr, isHex, debug);
+
+    // Regenerate and redraw waveforms with the new multiplier
+    // updateWaveforms();
+}
+
+void MainWindow::onDataSliderInit() {
+    QString addressStr = "ffffffc4";
+    bool ok;
+    uint64_t longAddress = addressStr.toULongLong(&ok, 16);
+    uint32_t address = static_cast<uint32_t>(longAddress);
+    if (!ok) {
+        logInfo("Invalid address format");
+        return;
+    }
+
+    Peek peek(&serial);
+    QByteArray responseData = peek.execute(address);
+
+    // Process and display response data
+    if (!responseData.isEmpty() && responseData.size() >= sizeof(uint32_t)) {
+        uint32_t responseValue;
+        memcpy(&responseValue, responseData.data(), sizeof(uint32_t));
+        //logInfo("Response: " + QString::number(responseValue) + " (0x" + QString::number(responseValue, 16).toUpper() + ")");
+
+        int sliderValue = (responseValue & 0xfff0) >> 4;
+        ui->dataSlider->setValue(sliderValue);
+    } else {
+        logInfo("Invalid or empty response received");
+    }
 }
 
 void MainWindow::onWaveformDrawn(){
     // do anything else after the  waveforms are drawn.
     // just incase i want to do the calculations here and
     // leave the drawing only to be on the thread maybe?
+    m_isTrig1Hit = m_waveformThread->is_m_isTrig1Hit();
+    if(m_isTrig1Hit){
+        WaveformData trigSnapShot = m_waveformThread->getTrigWave();
+        m_snapShotData.channel1 = trigSnapShot.channel1;
+    }
 }
 
 void MainWindow::onStartStopSampling() {
@@ -142,6 +208,7 @@ void MainWindow::onStartStopSampling() {
         m_sampledData.channel1.clear();
         m_sampledData.channel2.clear();
         connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
+        QTimer::singleShot(0, this, &MainWindow::handleShiftValueChanged);
         QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
 
         // GO BIT
@@ -175,37 +242,47 @@ void MainWindow::onStartStopSampling() {
 void MainWindow::sampleAndUpdateWaveforms() {
     if (m_isSampling) {
         Sampling();
-        updateWaveforms();
+        // updateWaveforms();
         QTimer::singleShot(0, this, &MainWindow::sampleAndUpdateWaveforms);
     }
 }
 // --------------------------------------------- Graphing
 
 void MainWindow::Sampling() {
+    static QElapsedTimer timer;
+    static qint64 lastUpdateTime = 0;
+    qint64 interval = ui->SamplingIntervalSpinBox->value();
+    const qint64 updateInterval = interval; // 100 ms default
+
     // 8 bits datain
     QByteArray data = serial.readAll();
 
+
+    // Append the new data to the sampledData buffer
     for (const auto &byte : data) {
         quint8 unsignedValue = static_cast<quint8>(byte);
         int8_t signedValue = static_cast<int8_t>(unsignedValue);
-
         double value = static_cast<double>(signedValue);
         m_sampledData.channel1.append(value);
-
-        // debugging
-        if(unsignedValue < 0 || signedValue < 0 || value < 0){
-            qDebug() << "usVal: " << unsignedValue << "sVal" << signedValue  << "val" << value;
-        }
-
-        // Remove the oldest sample if the buffer size exceeds 1024
-        if (m_sampledData.channel1.size() > 512 * 10) {
-            m_sampledData.channel1.removeFirst();
-        }
     }
 
-    // Update the current buffer with the most recent 512 samples
+    // Update the currentBuffer with the most recent 512 samples
     if (m_sampledData.channel1.size() >= 512) {
-        m_currentBuffer.channel1 = m_sampledData.channel1.mid(m_sampledData.channel1.size() - 512);
+        qint64 currentTime = timer.elapsed();
+        if (currentTime - lastUpdateTime >= updateInterval) {
+            dataMutex.lock();
+
+            m_currentBuffer.channel1 = m_sampledData.channel1.mid(m_sampledData.channel1.size() - 512);
+
+            // Shift the sampledData buffer by removing the first 512 samples
+            m_sampledData.channel1.remove(0, 512);
+
+            dataMutex.unlock();
+            // Update the waveform display
+            updateWaveforms();
+
+            lastUpdateTime = currentTime;
+        }
     }
 }
 
@@ -259,7 +336,7 @@ void MainWindow::onSnapshot() {
 
 
     // Update the waveforms
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 void MainWindow::setRisingEdgeTrigger() {
@@ -270,7 +347,7 @@ void MainWindow::setRisingEdgeTrigger() {
         m_oscSettings.triggerType = RisingEdge;
         logInfo("Rising edge selected");
     }
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 void MainWindow::setFallingEdgeTrigger() {
@@ -281,7 +358,7 @@ void MainWindow::setFallingEdgeTrigger() {
         m_oscSettings.triggerType = FallingEdge;
         logInfo("Falling edge selected");
     }
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 void MainWindow::setTriggerLevel() {
@@ -293,7 +370,11 @@ void MainWindow::setTriggerLevel() {
         logInfo("Trigger deselected");
         m_isTrig1Hit = false;
         m_isTrig2Hit = false;
-        updateWaveforms();
+
+        m_waveformThread->set_m_isTrig1Hit(m_isTrig1Hit);
+        m_waveformThread->set_m_isTrig2Hit(m_isTrig2Hit);
+
+//        updateWaveforms();
 
     } else {
 
@@ -307,27 +388,19 @@ void MainWindow::setTriggerLevel() {
         m_oscSettings.triggerLevel = level;
         logInfo("Trigger level set to: " + QString::number(level));
 
-        updateWaveforms();
+//        updateWaveforms();
     }
 }
 
 
 void MainWindow::setupOscilloscopeControls() {
     // Initialize gain based on the dial's initial value
-    m_gain = ui->dial->value() / 100.0;
-    ui->dialValueLabel->setText(QString::number(ui->dial->value()));
-
-    // Connect the dial for gain adjustments
-    connect(ui->dial, &QDial::valueChanged, this, [this](int value) {
-        m_gain = value / 100.0;
-        ui->dialValueLabel->setText(QString::number(value));
-        updateWaveforms();
-    });
+    m_gain = 1 / 100.0; // might not be needed anymore !!??
 
     // data slider
     connect(ui->dataSlider, &QSpinBox::valueChanged, this, [this]() {
         generateWaveformData();
-        updateWaveforms();
+//        updateWaveforms();
     });
     ui->dataSlider->setValue(0);
 
@@ -337,12 +410,7 @@ void MainWindow::setupOscilloscopeControls() {
 }
 
 
-void MainWindow::onDataSliderChanged(double value) {
-    m_dataMultiplier = value;
 
-    // Regenerate and redraw waveforms with the new multiplier
-    updateWaveforms();
-}
 
 // --------------------------------------------- PEEK, POKE AND VERSION
 
@@ -527,10 +595,23 @@ void MainWindow::onClear(){
 
 void MainWindow::initializeSerialCommunication() {
     if (serial.isOpen()) {
-        serial.close();
+
+        // GO BIT
+        QString addressStr = "FFFFFFB0";
+        QString dataStr = "0";
+        bool isHex = true;
+        bool debug = false;
+        onPoke(addressStr, dataStr, isHex, debug);
+        disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
+        m_isSampling = false;
+        ui->startSampling->setText("Start Sampling");
+        logInfo("..... STOPPING .....");
+
         ui->connectButton->setText("Connect");
         ui->connectButton->setStyleSheet("color: red; background-color: white;");
         logInfo("Disconnected from "+ serial.portName());
+
+        serial.close();
     } else {
         serial.setPortName(ui->comPortComboBox->currentText()); // Ensure this is correct
         serial.setBaudRate(921600);
@@ -538,6 +619,8 @@ void MainWindow::initializeSerialCommunication() {
             ui->connectButton->setText("Disconnect");
             ui->connectButton->setStyleSheet("color: green; background-color: white;");
             logInfo("Connected to " + serial.portName());
+            QTimer::singleShot(0, this, &MainWindow::onDataSliderInit);
+
         } else {
             logInfo("Failed to open port " + serial.portName());
         }
@@ -556,17 +639,17 @@ QString MainWindow::isConnected() {
 
 void MainWindow::onZoomOut() {
     m_zoomLevel *= 1.1; // Decrease the zoom level by 10%
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 void MainWindow::onDefaultZoom() {
     m_zoomLevel = 1.0; // Reset the zoom level to default
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 void MainWindow::onZoomIn() {
     m_zoomLevel *= 0.9; // Increase the zoom level by 10%
-    updateWaveforms();
+//    updateWaveforms();
 }
 
 
@@ -574,7 +657,7 @@ void MainWindow::onZoomIn() {
 void MainWindow::resizeEvent(QResizeEvent* event) {
     QMainWindow::resizeEvent(event); // Call base class implementation
 //    zoomLevel = 1.0;
-    updateWaveforms(); // Update the waveforms with the new size
+//    updateWaveforms(); // Update the waveforms with the new size
 }
 
 MainWindow::~MainWindow()
@@ -586,6 +669,15 @@ MainWindow::~MainWindow()
         delete m_waveformThread;
         m_waveformThread = nullptr;
     }
+
+    // stop the dma engine just in case
+    // GO BIT
+    QString addressStr = "FFFFFFB0";
+    QString dataStr = "0";
+    bool isHex = true;
+    bool debug = false;
+    onPoke(addressStr, dataStr, isHex, debug);
+    disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
 
     delete ui;
 }
