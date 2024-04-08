@@ -1,16 +1,36 @@
+//******** mainwindow.h
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include <QLabel>
 #include <QMainWindow>
 #include <QSerialPort>
-#include "waveformthread.h"
-#include <QMutex>
-#include <QWaitCondition>
+
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
+
+// two channels for data
+struct WaveformData {
+    QVector<double> channel1;
+    QVector<double> channel2;
+};
+
+enum TriggerType {
+    NoTrigger,
+    RisingEdge,
+    FallingEdge,
+    TriggerLevel
+};
+
+struct OscilloscopeSettings {
+    TriggerType triggerType;
+    double triggerLevel;
+};
+
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -25,58 +45,74 @@ private:
     Ui::MainWindow *ui;
     QSerialPort serial;
 
-    WaveformThread *m_waveformThread;
-    OscilloscopeSettings m_oscSettings;
-    WaveformData m_waveformData;
-    WaveformData m_currentBuffer;
-    WaveformData m_sampledData;
-    WaveformData m_snapShotData;
+    OscilloscopeSettings oscSettings; // Oscilloscope settings
+    TriggerType currentTriggerType = NoTrigger;
+    WaveformData waveformData;
 
-    bool m_isSampling;
-    double m_triggerLevel;
-    double m_gain;
-    double m_dataMultiplier;
-    bool m_isTrig1Hit;
-    bool m_isTrig2Hit;
-    double m_zoomLevel;
-    bool m_snapShot;
+    WaveformData currentBuffer;
+    WaveformData sampledData;
+    bool isSampling = false;
 
-    void setupOscilloscopeControls();
+    double triggerLevel = 0.0;
+
+
+    //bool isTrig1Set = false;
+    //bool isTrig2Set = false;
+
+    bool isTrig1Hit = false;
+    bool isTrig2Hit = false;
+
+    double zoomLevel = 30.0;
+
+    int shiftValue = 0;
+
+//    void setupOscilloscopeControls();
     void applyTriggerSettings();
 
-    QMutex dataMutex;
-    QWaitCondition dataCondition;
+    bool snapShot = false;
+    WaveformData snapShotData;
+    void  analyzeWaveformData();
+    void  onDataSliderInit();
+    int timerId;
+    void lockin();
+    double calculateWaveformSmoothness();
+    void smoothWaveformData(double windowSize);
 private slots:
+    void onAutoLockChanged(int state);
     void onBrowseFile();
     QString isConnected();
+
     void setRisingEdgeTrigger();
     void setFallingEdgeTrigger();
     void setTriggerLevel();
+
+    void drawWaveform(QLabel* label, const QVector<double>& data);
     void generateWaveformData();
-    void onDataSliderChanged(int value);
+    void onDataSliderChanged();
     void onSnapshot();
+
     void onClear();
     void onPeek(const QString &addressStr, bool debug = true);
     void onPoke(const QString &addressStr, const QString &dataStr, bool isHex, bool debug = true);
     void onVersion();
     void turnOnBoard();
+
     void onZoomOut();
     void onDefaultZoom();
     void onZoomIn();
+
     void onRefreshCOMPorts();
     void updateWaveforms();
     void onUpdateFirmware();
     void updateStatusLabel(const QString &status);
     void logInfo(const QString &message);
+
     void onStartStopSampling();
     void Sampling();
-    void sampleAndUpdateWaveforms();
     void initDMA();
-    void onWaveformDrawn();
-    void handleShiftValueChanged();
-    void onDataSliderInit();
+    void updateTimerInterval();
 protected:
-    void resizeEvent(QResizeEvent* event) override;
+    void timerEvent(QTimerEvent *event) override;
 };
 
 #endif // MAINWINDOW_H

@@ -1,6 +1,6 @@
-QT       += core gui serialport
+QT       += core gui serialport multimedia
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 5): QT += widgets
 
 
 # You can make your code fail to compile if it uses deprecated APIs.
@@ -11,16 +11,12 @@ SOURCES += \
     commands.cpp \
     firmwareupdater.cpp \
     main.cpp \
-    mainwindow.cpp \
-    waveformrenderer.cpp \
-    waveformthread.cpp
+    mainwindow.cpp
 
 HEADERS += \
     commands.h \
     firmwareupdater.h \
-    mainwindow.h \
-    waveformrenderer.h \
-    waveformthread.h
+    mainwindow.h
 
 FORMS += \
     mainwindow.ui

@@ -79,8 +79,8 @@
           <widget class="QPushButton" name="connectButton">
            <property name="styleSheet">
             <string notr="true">color: rgb(255, 58, 61);
-background-color: rgb(255, 255, 255);
-</string>
+             background-color: rgb(255, 255, 255);
+            </string>
            </property>
            <property name="text">
             <string>Connect</string>
@@ -147,7 +147,7 @@ background-color: rgb(255, 255, 255);
           <widget class="QPushButton" name="updateButton">
            <property name="styleSheet">
             <string notr="true">background-color: rgb(255, 255, 255);
-</string>
+            </string>
            </property>
            <property name="text">
             <string>Update</string>
@@ -191,7 +191,7 @@ background-color: rgb(255, 255, 255);
           <widget class="QPushButton" name="peekButton">
            <property name="styleSheet">
             <string notr="true">background-color: rgb(255, 255, 255);
-</string>
+            </string>
            </property>
            <property name="text">
             <string>Peek</string>
@@ -213,7 +213,7 @@ background-color: rgb(255, 255, 255);
           <widget class="QPushButton" name="pokeButton">
            <property name="styleSheet">
             <string notr="true">background-color: rgb(255, 255, 255);
-</string>
+            </string>
            </property>
            <property name="text">
             <string>Poke</string>
@@ -504,7 +504,7 @@ background-color: rgb(255, 255, 255);
              </property>
              <property name="styleSheet">
               <string notr="true">background-color: rgb(254, 255, 181);
-font: 700 22pt &quot;Segoe UI&quot;;</string>
+               font: 700 22pt &quot;Segoe UI&quot;;</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignCenter</set>
@@ -525,7 +525,7 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
             </widget>
            </item>
            <item>
-            <widget class="QSpinBox" name="SamplingIntervalSpinBox">
+            <widget class="QDoubleSpinBox" name="SamplingIntervalSpinBox">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Minimum" vsizetype="Maximum">
                <horstretch>0</horstretch>
@@ -544,14 +544,20 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
              <property name="accelerated">
               <bool>true</bool>
              </property>
+             <property name="decimals">
+              <number>3</number>
+             </property>
              <property name="minimum">
-              <number>0</number>
+              <double>0.000000000000000</double>
              </property>
              <property name="maximum">
-              <number>1000</number>
+              <double>10000.000000000000000</double>
+             </property>
+             <property name="stepType">
+              <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
              </property>
              <property name="value">
-              <number>0</number>
+              <double>1.000000000000000</double>
              </property>
             </widget>
            </item>
@@ -607,16 +613,23 @@ font: 700 22pt &quot;Segoe UI&quot;;</string>
               <string notr="true">background-color: rgb(255, 255, 255);</string>
              </property>
              <property name="minimum">
-              <number>-500</number>
+              <number>-1000</number>
              </property>
              <property name="maximum">
-              <number>500</number>
+              <number>1000</number>
              </property>
              <property name="singleStep">
               <number>5</number>
              </property>
              <property name="value">
               <number>0</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="autoLockCheckBox">
+             <property name="text">
+              <string>Auto Smooth</string>
              </property>
             </widget>
            </item>
