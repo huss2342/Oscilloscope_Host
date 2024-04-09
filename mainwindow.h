@@ -45,10 +45,16 @@ private:
     Ui::MainWindow *ui;
     QSerialPort serial;
 
+    QTimer* updateTimer;
+    bool isRisingEdgeFound = false;
+    double previousLockingLevel = -1;
+    bool lockingEnabled;
+    int lockedRisingEdgeIndex = -1;
+
     OscilloscopeSettings oscSettings; // Oscilloscope settings
     TriggerType currentTriggerType = NoTrigger;
     WaveformData waveformData;
-
+    WaveformData lockedWaveformData;
     WaveformData currentBuffer;
     WaveformData sampledData;
     bool isSampling = false;
@@ -74,11 +80,11 @@ private:
     void  analyzeWaveformData();
     void  onDataSliderInit();
     int timerId;
-    void lockin();
+    void smoothing();
     double calculateWaveformSmoothness();
     void smoothWaveformData(double windowSize);
 private slots:
-    void onAutoLockChanged(int state);
+    void onAutoSmoothChanged(int state);
     void onBrowseFile();
     QString isConnected();
 
@@ -110,9 +116,9 @@ private slots:
     void onStartStopSampling();
     void Sampling();
     void initDMA();
-    void updateTimerInterval();
+//    void updateTimerInterval();
 protected:
-    void timerEvent(QTimerEvent *event) override;
+//    void timerEvent(QTimerEvent *event) override;
 };
 
 #endif // MAINWINDOW_H

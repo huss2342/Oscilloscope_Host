@@ -515,12 +515,15 @@
              <property name="maximum">
               <number>4095</number>
              </property>
+             <property name="singleStep">
+              <number>2</number>
+             </property>
             </widget>
            </item>
            <item>
             <widget class="QLabel" name="samplingIntervalLabel">
              <property name="text">
-              <string>Next Sample Interval</string>
+              <string>Smoothing Window</string>
              </property>
             </widget>
            </item>
@@ -554,10 +557,10 @@
               <double>10000.000000000000000</double>
              </property>
              <property name="stepType">
-              <enum>QAbstractSpinBox::AdaptiveDecimalStepType</enum>
+              <enum>QAbstractSpinBox::DefaultStepType</enum>
              </property>
              <property name="value">
-              <double>1.000000000000000</double>
+              <double>0.000000000000000</double>
              </property>
             </widget>
            </item>
@@ -627,7 +630,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QCheckBox" name="autoLockCheckBox">
+            <widget class="QCheckBox" name="autoSmoothCheckBox">
              <property name="text">
               <string>Auto Smooth</string>
              </property>
@@ -746,7 +749,7 @@
           </size>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="tab">
           <property name="sizePolicy">
@@ -804,6 +807,59 @@
           </attribute>
           <layout class="QVBoxLayout" name="verticalLayout_7">
            <item>
+            <widget class="QLabel" name="sampleSizelbl">
+             <property name="text">
+              <string>Sample Size:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="sampleSizeSpinner">
+             <property name="styleSheet">
+              <string notr="true">background-color: rgb(255, 255, 255);</string>
+             </property>
+             <property name="accelerated">
+              <bool>true</bool>
+             </property>
+             <property name="maximum">
+              <number>10000</number>
+             </property>
+             <property name="value">
+              <number>1024</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="LockTriggerLabel">
+             <property name="text">
+              <string>Locking Edge</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="lockingCheckBox">
+             <property name="text">
+              <string>Enable Locking</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSlider" name="lockingLevelSlider">
+             <property name="minimum">
+              <number>-200</number>
+             </property>
+             <property name="maximum">
+              <number>200</number>
+             </property>
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="tickPosition">
+              <enum>QSlider::TicksAbove</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
             <widget class="QLabel" name="fft">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
@@ -812,7 +868,7 @@
               </sizepolicy>
              </property>
              <property name="text">
-              <string>fft</string>
+              <string>Extra Analysis</string>
              </property>
              <property name="scaledContents">
               <bool>false</bool>

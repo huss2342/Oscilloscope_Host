@@ -11,8 +11,8 @@
 #include <QRegularExpression>
 #include <QValidator>
 #include <QPainterPath>
-#include <QElapsedTimer>
-#include <QTimerEvent>
+//#include <QElapsedTimer>
+//#include <QTimerEvent>
 #include <QAudioBuffer>
 #include <QAudioDecoder>
 #include <QBuffer>
@@ -121,17 +121,23 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->InitDMA, &QPushButton::clicked, this, &MainWindow::initDMA);
 
     // update the sampling interval
-    connect(ui->SamplingIntervalSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::updateTimerInterval);
-    updateTimerInterval();
+//    connect(ui->SamplingIntervalSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::updateTimerInterval);
+//    updateTimerInterval();
 
-    connect(ui->autoLockCheckBox, &QCheckBox::stateChanged, this, &MainWindow::onAutoLockChanged);
+    connect(ui->autoSmoothCheckBox, &QCheckBox::stateChanged, this, &MainWindow::onAutoSmoothChanged);
+
+
+    // update wave form timer
+    updateTimer = new QTimer(this);
+    connect(updateTimer, &QTimer::timeout, this, &MainWindow::updateWaveforms);
+    updateTimer->start(0); // Update every X milliseconds
 }
 
-void MainWindow::onAutoLockChanged(int state) {
+void MainWindow::onAutoSmoothChanged(int state) {
     if (state == Qt::Checked) {
         logInfo("Auto smooth enabled");
         if (isSampling) {
-            lockin();
+            smoothing();
         }
     } else {
         logInfo("Auto smooth disabled");
@@ -139,18 +145,16 @@ void MainWindow::onAutoLockChanged(int state) {
     }
 }
 
-void MainWindow::lockin() {
+void MainWindow::smoothing() {
     if (!isSampling) {
         logInfo("Error: Sampling is not active");
         return;
     }
 
-    // Calculate the period of the waveform
     double smoothness = calculateWaveformSmoothness();
     if (smoothness > 0) {
-        double windowSize = std::max(1.0, 20.0 - smoothness);
+        double windowSize = std::max(1.0, 15.0 - smoothness);
 
-        // Set the update interval to match the period
         ui->SamplingIntervalSpinBox->setValue(windowSize);
 
     } else {
@@ -158,7 +162,49 @@ void MainWindow::lockin() {
     }
 }
 
+//void MainWindow::smoothWaveformData(double windowSize) {
+//    int sigma = 10;
+
+//    if (waveformData.channel1.isEmpty()) {
+//        return;
+//    }
+
+//    QVector<double> smoothedData;
+//    int halfWindow = windowSize / 2;
+
+//    // Calculate the Gaussian weights
+//    QVector<double> weights(windowSize);
+//    double sum = 0;
+//    for (int i = 0; i < windowSize; ++i) {
+//        double x = i - halfWindow;
+//        weights[i] = exp(-0.5 * x * x / (sigma * sigma));
+//        sum += weights[i];
+//    }
+//    // Normalize the weights
+//    for (int i = 0; i < windowSize; ++i) {
+//        weights[i] /= sum;
+//    }
+
+//    for (int i = 0; i < waveformData.channel1.size(); ++i) {
+//        double weightedSum = 0;
+
+//        // Calculate the weighted sum of the samples within the window
+//        for (int j = i - halfWindow; j <= i + halfWindow; ++j) {
+//            if (j >= 0 && j < waveformData.channel1.size()) {
+//                weightedSum += waveformData.channel1[j] * weights[j - (i - halfWindow)];
+//            }
+//        }
+
+//        smoothedData.append(weightedSum);
+//    }
+
+//    // Replace the original waveform data with the smoothed data
+//    waveformData.channel1 = smoothedData;
+//}
+
+
 void MainWindow::smoothWaveformData(double windowSize) {
+
     if (waveformData.channel1.isEmpty()) {
         return; // No data to smooth
     }
@@ -249,7 +295,7 @@ void MainWindow::onDataSliderInit() {
     if (!responseData.isEmpty() && responseData.size() >= sizeof(uint32_t)) {
         uint32_t responseValue;
         memcpy(&responseValue, responseData.data(), sizeof(uint32_t));
-        //logInfo("Response: " + QString::number(responseValue) + " (0x" + QString::number(responseValue, 16).toUpper() + ")");
+        logInfo("Response: " + QString::number(responseValue) + " (0x" + QString::number(responseValue, 16).toUpper() + ")");
 
         int sliderValue = (responseValue & 0xfff0) >> 4;
         ui->dataSlider->setValue(sliderValue);
@@ -273,8 +319,7 @@ void MainWindow::onStartStopSampling() {
         shiftValue = ui->shiftGraphSpinner->value();
 
         connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
-        startTimer(ui->SamplingIntervalSpinBox->value()); // Start the timer with the specified interval
-        updateTimerInterval();
+//        updateTimerInterval();
 
         // GO BIT
         QString addressStr = "FFFFFFB0";
@@ -322,12 +367,9 @@ void MainWindow::Sampling() {
 
 
 
-                                                ////////////////////////////////////////////////////////////////////////////////////
 
 void MainWindow::updateWaveforms() {
-
-//    const int bufferSize = 4400;
-    const int bufferSize = 1024;
+    const int bufferSize = ui->sampleSizeSpinner->value();
 
     // Update the currentBuffer with the most recent samples
     if (sampledData.channel1.size() >= bufferSize) {
@@ -337,22 +379,21 @@ void MainWindow::updateWaveforms() {
 
     // waveform <= currentBuffer
 
-    if (isSampling && ui->autoLockCheckBox->isChecked()) {
-        lockin();
+    if (isSampling && ui->autoSmoothCheckBox->isChecked()) {
+        smoothing();
     }
     smoothWaveformData(ui->SamplingIntervalSpinBox->value());
     generateWaveformData(); // creates the waves
     analyzeWaveformData(); // Call after generating data to analyze for trigger levels and log information
+
     drawWaveform(ui->sineWaveLabel, waveformData.channel1);
     drawWaveform(ui->squareWaveLabel, waveformData.channel2);
-
-
 }
 
 void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     if (data.isEmpty()) return;
 
-    int shiftValue = ui->shiftGraphSpinner->value();
+    const QVector<double>& displayData = data;
 
     // Setup for drawing
     QSize labelSize = label->size();
@@ -362,11 +403,11 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     QPen pen(Qt::black);
     painter.setPen(pen);
 
-    double xScale = labelSize.width() / static_cast<double>(data.size() - 1);
+    double xScale = labelSize.width() / static_cast<double>(displayData.size() - 1);
     double yScale = (labelSize.height() / 2.0) / zoomLevel;
 
     QPainterPath path;
-    double yPos = labelSize.height() / 2.0 - data[0] * yScale - shiftValue; // Corrected y-position calculation
+    double yPos = labelSize.height() / 2.0 - displayData[0] * yScale - shiftValue; // Corrected y-position calculation
     path.moveTo(0, yPos);
 
     // Draw a horizontal line at the middle of the screen
@@ -375,20 +416,22 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     painter.drawLine(0, midY, labelSize.width(), midY);
     painter.setPen(pen);
 
-    for (int i = 1; i < data.size(); ++i) {
-        double nextYPos = labelSize.height() / 2.0 - data[i] * yScale - shiftValue; // Corrected y-position calculation
+    for (int i = 1; i < displayData.size(); ++i) {
+        double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue; // Corrected y-position calculation
         double xPos = i * xScale;
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//        double xPos = (i - triggerIndex) * xScale;
         path.lineTo(xPos, nextYPos);
 
         // Rising Edge detection and highlighting
-        if (oscSettings.triggerType == RisingEdge && data[i] < data[i-1]) {
+        if (oscSettings.triggerType == RisingEdge && displayData[i] < displayData[i-1]) {
             painter.setPen(QPen(Qt::red, 2));
             painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
         }
 
         // Falling Edge detection and highlighting
-        if (oscSettings.triggerType == FallingEdge && data[i] > data[i-1]) {
+        if (oscSettings.triggerType == FallingEdge && displayData[i] > displayData[i-1]) {
             painter.setPen(QPen(Qt::blue, 2));
             painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
@@ -396,8 +439,8 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     }
 
     // Calculate max and min values from data
-    double maxVal = *std::max_element(data.constBegin(), data.constEnd());
-    double minVal = *std::min_element(data.constBegin(), data.constEnd());
+    double maxVal = *std::max_element(displayData.constBegin(), displayData.constEnd());
+    double minVal = *std::min_element(displayData.constBegin(), displayData.constEnd());
 
     // Draw max and min values on the graph
     painter.setPen(Qt::black); // Use black pen for text
@@ -412,6 +455,17 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
         painter.drawLine(0, triggerYPos, labelSize.width(), triggerYPos);
         painter.setPen(pen);
     }
+
+    // Draw locking line if locking is enabled
+        double lockingLevel = ui->lockingLevelSlider->value();
+        double lockingYPos = labelSize.height() / 2.0 - lockingLevel * yScale;
+        QPen lockingPen(Qt::darkBlue, 1);
+        if (ui->lockingCheckBox->isChecked()) {
+            lockingPen.setColor(Qt::red);
+        }
+        painter.setPen(lockingPen);
+        painter.drawLine(0, lockingYPos, labelSize.width(), lockingYPos);
+        painter.setPen(pen);
 
     painter.setRenderHint(QPainter::Antialiasing);
     painter.drawPath(path);
@@ -441,6 +495,9 @@ void MainWindow::generateWaveformData() {
         waveformData.channel1 = snapShotData.channel1;
         waveformData.channel2 = snapShotData.channel2;
     }
+
+
+
 }
 
 void MainWindow::onSnapshot() {
@@ -719,16 +776,17 @@ void MainWindow::onClear(){
 void MainWindow::initializeSerialCommunication() {
     if (serial.isOpen()) {
 
-        // GO BIT
-        QString addressStr = "FFFFFFB0";
-        QString dataStr = "0";
-        bool isHex = true;
-        bool debug = false;
-        onPoke(addressStr, dataStr, isHex, debug);
         disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
         isSampling = false;
         ui->startSampling->setText("Start Sampling");
         logInfo("..... STOPPING .....");
+
+        // SPI
+//        QString addressStr = "ffffffc4";
+//        QString dataStr = "00300000";
+//        bool isHex = true;
+//        bool debug = false;
+//        onPoke(addressStr, dataStr, isHex, debug);
 
         ui->connectButton->setText("Connect");
         ui->connectButton->setStyleSheet("color: red; background-color: white;");
@@ -742,8 +800,14 @@ void MainWindow::initializeSerialCommunication() {
             ui->connectButton->setText("Disconnect");
             ui->connectButton->setStyleSheet("color: green; background-color: white;");
             logInfo("Connected to " + serial.portName());
+            // SPI
+            QString addressStr = "ffffffc4";
+            QString dataStr = "00300000";
+            bool isHex = true;
+            bool debug = false;
+            onPoke(addressStr, dataStr, isHex, debug);
             //onDataSliderInit();
-            QTimer::singleShot(0, this, &MainWindow::onDataSliderInit);
+            //QTimer::singleShot(0, this, &MainWindow::onDataSliderInit);
 
         } else {
             logInfo("Failed to open port " + serial.portName());
@@ -778,18 +842,14 @@ void MainWindow::onZoomIn() {
 
 
 // ---------------------------------------------
-void MainWindow::timerEvent(QTimerEvent *event) {
-    if (event->timerId() == timerId) {
-        updateWaveforms();
-    }
-}
 
-void MainWindow::updateTimerInterval() {
-    if (isSampling) {
-        killTimer(timerId);
-        timerId = startTimer(ui->SamplingIntervalSpinBox->value());
-    }
-}
+
+//void MainWindow::updateTimerInterval() {
+//    if (isSampling) {
+//        killTimer(timerId);
+//        timerId = startTimer(ui->SamplingIntervalSpinBox->value());
+//    }
+//}
 
 MainWindow::~MainWindow()
 {
