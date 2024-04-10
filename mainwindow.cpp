@@ -448,10 +448,12 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
         double xPos = (i - startIndex) * xScale;
 
         // Rising Edge detection and highlighting
-        if (ui->lockingCheckBox->isChecked() && i > startIndex && displayData[i] < displayData[i - 1] && displayData[i] > ui->lockingLevelSlider->value()) {
+        bool risingEdgeDetected = false;
+        if (ui->lockingCheckBox->isChecked() && i > startIndex && displayData[i] < displayData[i - 1] && displayData[i] > ui->lockingLevelSlider->value() && !risingEdgeDetected) {
             painter.setPen(QPen(Qt::magenta, 2));
             painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
+            risingEdgeDetected = true;
         }
 
         // Rising Edge detection and highlighting
@@ -487,14 +489,17 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
             }
         }
 
-        for (int i = 0; i < triggerIndex; ++i) {
-            double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue;
-            double xPos = remainingXPos + i * xScale;
+        // Draw the remaining path from the beginning only if necessary
+        if (remainingXPos < labelSize.width()) {
+            for (int i = 0; i < triggerIndex; ++i) {
+                double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue;
+                double xPos = remainingXPos + i * xScale;
 
-            if (xPos < labelSize.width()) {
-                remainingPath.lineTo(xPos, nextYPos);
-            } else {
-                break;
+                if (xPos < labelSize.width()) {
+                    remainingPath.lineTo(xPos, nextYPos);
+                } else {
+                    break;
+                }
             }
         }
 
