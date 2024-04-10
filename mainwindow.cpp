@@ -31,7 +31,6 @@ ffffffc4
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , timerId(-1)
 {
     ui->setupUi(this);
 
@@ -109,8 +108,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->dataSlider, &QSpinBox::valueChanged, this, &MainWindow::onDataSliderChanged);
 
     // Other connections for trigger settings
-    connect(ui->risingEdgeButton, &QPushButton::clicked, this, &MainWindow::setRisingEdgeTrigger);
-    connect(ui->fallingEdgeButton, &QPushButton::clicked, this, &MainWindow::setFallingEdgeTrigger);
+    connect(ui->risingEdgeButton, &QPushButton::clicked, this, &MainWindow::highlightRisingEdge);
+    connect(ui->fallingEdgeButton, &QPushButton::clicked, this, &MainWindow::highlightFallingEdge);
     connect(ui->triggerButton, &QPushButton::clicked, this, &MainWindow::setTriggerLevel);
     connect(ui->snapshotButton, &QPushButton::clicked, this, &MainWindow::onSnapshot);
 
@@ -121,8 +120,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->InitDMA, &QPushButton::clicked, this, &MainWindow::initDMA);
 
     // update the sampling interval
-//    connect(ui->SamplingIntervalSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::updateTimerInterval);
-//    updateTimerInterval();
+    //    connect(ui->SamplingIntervalSpinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::updateTimerInterval);
+    //    updateTimerInterval();
 
     connect(ui->autoSmoothCheckBox, &QCheckBox::stateChanged, this, &MainWindow::onAutoSmoothChanged);
 
@@ -131,6 +130,11 @@ MainWindow::MainWindow(QWidget *parent)
     updateTimer = new QTimer(this);
     connect(updateTimer, &QTimer::timeout, this, &MainWindow::updateWaveforms);
     updateTimer->start(0); // Update every X milliseconds
+
+
+    ui->lockingCheckBox->isChecked();
+    ui->lockingLevelSlider->value();
+
 }
 
 void MainWindow::onAutoSmoothChanged(int state) {
@@ -319,7 +323,7 @@ void MainWindow::onStartStopSampling() {
         shiftValue = ui->shiftGraphSpinner->value();
 
         connect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
-//        updateTimerInterval();
+        //        updateTimerInterval();
 
         // GO BIT
         QString addressStr = "FFFFFFB0";
@@ -390,6 +394,7 @@ void MainWindow::updateWaveforms() {
     drawWaveform(ui->squareWaveLabel, waveformData.channel2);
 }
 
+
 void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     if (data.isEmpty()) return;
 
@@ -407,8 +412,30 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     double yScale = (labelSize.height() / 2.0) / zoomLevel;
 
     QPainterPath path;
-    double yPos = labelSize.height() / 2.0 - displayData[0] * yScale - shiftValue; // Corrected y-position calculation
-    path.moveTo(0, yPos);
+    int triggerIndex = -1; // Initialize triggerIndex to -1 (no trigger)
+
+    // Check if rising edge trigger is enabled
+    if (ui->lockingCheckBox->isChecked()) {
+        // Find the index of the first rising edge above the trigger level
+        double triggerLevel = ui->lockingLevelSlider->value();
+        for (int i = 1; i < displayData.size(); ++i) {
+            if (displayData[i] < displayData[i - 1] && displayData[i] > triggerLevel) {
+                triggerIndex = i;
+                break;
+            }
+        }
+    }
+
+    double yPos;
+    int startIndex = 0;
+    if (triggerIndex == -1) {
+        yPos = labelSize.height() / 2.0 - displayData[0] * yScale - shiftValue;
+        path.moveTo(0, yPos);
+    } else {
+        startIndex = triggerIndex;
+        yPos = labelSize.height() / 2.0 - displayData[triggerIndex] * yScale - shiftValue;
+        path.moveTo((triggerIndex - 1) * xScale, yPos);
+    }
 
     // Draw a horizontal line at the middle of the screen
     painter.setPen(Qt::darkGreen);
@@ -416,26 +443,62 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     painter.drawLine(0, midY, labelSize.width(), midY);
     painter.setPen(pen);
 
-    for (int i = 1; i < displayData.size(); ++i) {
-        double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue; // Corrected y-position calculation
-        double xPos = i * xScale;
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//        double xPos = (i - triggerIndex) * xScale;
-        path.lineTo(xPos, nextYPos);
+    for (int i = startIndex; i < displayData.size() - 1; ++i) {
+        double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue;
+        double xPos = (i - startIndex) * xScale;
 
         // Rising Edge detection and highlighting
-        if (oscSettings.triggerType == RisingEdge && displayData[i] < displayData[i-1]) {
+        if (ui->lockingCheckBox->isChecked() && i > startIndex && displayData[i] < displayData[i - 1] && displayData[i] > ui->lockingLevelSlider->value()) {
+            painter.setPen(QPen(Qt::magenta, 2));
+            painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
+            painter.setPen(pen);
+        }
+
+        // Rising Edge detection and highlighting
+        if (oscSettings.triggerType == RisingEdgeHighlighter && i < displayData.size() - 1 && displayData[i] < displayData[i + 1]) {
             painter.setPen(QPen(Qt::red, 2));
             painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
         }
 
         // Falling Edge detection and highlighting
-        if (oscSettings.triggerType == FallingEdge && displayData[i] > displayData[i-1]) {
+        if (oscSettings.triggerType == FallingEdgeHighlighter && i < displayData.size() - 1 && displayData[i] > displayData[i + 1]) {
             painter.setPen(QPen(Qt::blue, 2));
             painter.drawEllipse(QPointF(xPos, nextYPos), 2, 2);
             painter.setPen(pen);
         }
+
+        path.lineTo(xPos, nextYPos);
+    }
+
+    // If there are not enough data points after the trigger index, start a new path from the beginning
+    if (triggerIndex != -1 && displayData.size() - triggerIndex < labelSize.width() / xScale) {
+        QPainterPath remainingPath;
+        double remainingXPos = (displayData.size() - triggerIndex) * xScale;
+
+        for (int i = triggerIndex; i < displayData.size(); ++i) {
+            double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue;
+            double xPos = (i - triggerIndex) * xScale;
+
+            if (i == triggerIndex) {
+                remainingPath.moveTo(xPos, nextYPos);
+            } else {
+                remainingPath.lineTo(xPos, nextYPos);
+            }
+        }
+
+        for (int i = 0; i < triggerIndex; ++i) {
+            double nextYPos = labelSize.height() / 2.0 - displayData[i] * yScale - shiftValue;
+            double xPos = remainingXPos + i * xScale;
+
+            if (xPos < labelSize.width()) {
+                remainingPath.lineTo(xPos, nextYPos);
+            } else {
+                break;
+            }
+        }
+
+        painter.drawPath(remainingPath);
     }
 
     // Calculate max and min values from data
@@ -457,20 +520,21 @@ void MainWindow::drawWaveform(QLabel* label, const QVector<double>& data) {
     }
 
     // Draw locking line if locking is enabled
-        double lockingLevel = ui->lockingLevelSlider->value();
-        double lockingYPos = labelSize.height() / 2.0 - lockingLevel * yScale;
-        QPen lockingPen(Qt::darkBlue, 1);
-        if (ui->lockingCheckBox->isChecked()) {
-            lockingPen.setColor(Qt::red);
-        }
-        painter.setPen(lockingPen);
-        painter.drawLine(0, lockingYPos, labelSize.width(), lockingYPos);
-        painter.setPen(pen);
+    double lockingLevel = ui->lockingLevelSlider->value();
+    double lockingYPos = labelSize.height() / 2.0 - lockingLevel * yScale;
+    QPen lockingPen(Qt::darkBlue, 1);
+    if (ui->lockingCheckBox->isChecked()) {
+        lockingPen.setColor(Qt::red);
+    }
+    painter.setPen(lockingPen);
+    painter.drawLine(0, lockingYPos, labelSize.width(), lockingYPos);
+    painter.setPen(pen);
 
     painter.setRenderHint(QPainter::Antialiasing);
     painter.drawPath(path);
     label->setPixmap(pixmap);
 }
+
 
 void MainWindow::generateWaveformData() {
     if (!snapShot) {
@@ -485,9 +549,9 @@ void MainWindow::generateWaveformData() {
 
         if (!isTrig2Hit) {
             waveformData.channel2.clear();
-//            for (int i = 0; i < 511; ++i) {
-//                waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
-//            }
+            //            for (int i = 0; i < 511; ++i) {
+            //                waveformData.channel2.append(((i % 20) < 10 ? 1 : -1) * dataMultiplier); // Apply multiplier
+            //            }
         } else {
             waveformData.channel2 = snapShotData.channel2;
         }
@@ -515,29 +579,29 @@ void MainWindow::onSnapshot() {
 
 
     // Update the waveforms
-//    updateWaveforms();
+    //    updateWaveforms();
 }
 
-void MainWindow::setRisingEdgeTrigger() {
-    if (oscSettings.triggerType == RisingEdge) {
+void MainWindow::highlightRisingEdge() {
+    if (oscSettings.triggerType == RisingEdgeHighlighter) {
         oscSettings.triggerType = NoTrigger; // Toggle off if already set
         logInfo("Rising edge deselected");
     } else {
-        oscSettings.triggerType = RisingEdge;
+        oscSettings.triggerType = RisingEdgeHighlighter;
         logInfo("Rising edge selected");
     }
-//    updateWaveforms();
+    //    updateWaveforms();
 }
 
-void MainWindow::setFallingEdgeTrigger() {
-    if (oscSettings.triggerType == FallingEdge) {
+void MainWindow::highlightFallingEdge() {
+    if (oscSettings.triggerType == FallingEdgeHighlighter) {
         oscSettings.triggerType = NoTrigger; // Toggle off if already set
         logInfo("Falling edge deselected");
     } else {
-        oscSettings.triggerType = FallingEdge;
+        oscSettings.triggerType = FallingEdgeHighlighter;
         logInfo("Falling edge selected");
     }
-//    updateWaveforms();
+    //    updateWaveforms();
 }
 
 void MainWindow::setTriggerLevel() {
@@ -563,7 +627,7 @@ void MainWindow::setTriggerLevel() {
         oscSettings.triggerLevel = level;
         logInfo("Trigger level set to: " + QString::number(level));
 
-//        updateWaveforms();
+        //        updateWaveforms();
     }
 }
 
@@ -782,11 +846,11 @@ void MainWindow::initializeSerialCommunication() {
         logInfo("..... STOPPING .....");
 
         // SPI
-//        QString addressStr = "ffffffc4";
-//        QString dataStr = "00300000";
-//        bool isHex = true;
-//        bool debug = false;
-//        onPoke(addressStr, dataStr, isHex, debug);
+        //        QString addressStr = "ffffffc4";
+        //        QString dataStr = "00300000";
+        //        bool isHex = true;
+        //        bool debug = false;
+        //        onPoke(addressStr, dataStr, isHex, debug);
 
         ui->connectButton->setText("Connect");
         ui->connectButton->setStyleSheet("color: red; background-color: white;");
@@ -843,13 +907,6 @@ void MainWindow::onZoomIn() {
 
 // ---------------------------------------------
 
-
-//void MainWindow::updateTimerInterval() {
-//    if (isSampling) {
-//        killTimer(timerId);
-//        timerId = startTimer(ui->SamplingIntervalSpinBox->value());
-//    }
-//}
 
 MainWindow::~MainWindow()
 {

@@ -21,8 +21,8 @@ struct WaveformData {
 
 enum TriggerType {
     NoTrigger,
-    RisingEdge,
-    FallingEdge,
+    RisingEdgeHighlighter,
+    FallingEdgeHighlighter,
     TriggerLevel
 };
 
@@ -47,9 +47,11 @@ private:
 
     QTimer* updateTimer;
     bool isRisingEdgeFound = false;
-    double previousLockingLevel = -1;
-    bool lockingEnabled;
-    int lockedRisingEdgeIndex = -1;
+
+    int risingEdgeTriggerLevel = -1;
+//    double previousLockingLevel = -1;
+//    bool lockingEnabled;
+//    int lockedRisingEdgeIndex = -1;
 
     OscilloscopeSettings oscSettings; // Oscilloscope settings
     TriggerType currentTriggerType = NoTrigger;
@@ -72,7 +74,7 @@ private:
 
     int shiftValue = 0;
 
-//    void setupOscilloscopeControls();
+    //    void setupOscilloscopeControls();
     void applyTriggerSettings();
 
     bool snapShot = false;
@@ -88,8 +90,8 @@ private slots:
     void onBrowseFile();
     QString isConnected();
 
-    void setRisingEdgeTrigger();
-    void setFallingEdgeTrigger();
+    void highlightRisingEdge();
+    void highlightFallingEdge();
     void setTriggerLevel();
 
     void drawWaveform(QLabel* label, const QVector<double>& data);
@@ -116,9 +118,9 @@ private slots:
     void onStartStopSampling();
     void Sampling();
     void initDMA();
-//    void updateTimerInterval();
+    //    void updateTimerInterval();
 protected:
-//    void timerEvent(QTimerEvent *event) override;
+    //    void timerEvent(QTimerEvent *event) override;
 };
 
 #endif // MAINWINDOW_H

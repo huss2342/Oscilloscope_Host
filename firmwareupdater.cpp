@@ -86,11 +86,11 @@ bool FirmwareUpdater::transmitFirmwareData(QSerialPort &serial, int lineCount, c
     QByteArray lineCountArray(reinterpret_cast<const char *>(&lineCountBigEndian), sizeof(lineCountBigEndian));
 
     // Debug print the contents of lineCountArray
-        //    QString lineCountDebugString;
-        //    for (int i = 0; i < lineCountArray.size(); ++i) {
-        //        lineCountDebugString += QString::number(static_cast<uint8_t>(lineCountArray[i]), 16).rightJustified(2, '0').toUpper() + " ";
-        //    }
-        //    emit updateStatus("Contents of lineCountArray: " + lineCountDebugString);
+    //    QString lineCountDebugString;
+    //    for (int i = 0; i < lineCountArray.size(); ++i) {
+    //        lineCountDebugString += QString::number(static_cast<uint8_t>(lineCountArray[i]), 16).rightJustified(2, '0').toUpper() + " ";
+    //    }
+    //    emit updateStatus("Contents of lineCountArray: " + lineCountDebugString);
 
     bytesWritten = serial.write(lineCountArray);
 
@@ -111,11 +111,11 @@ bool FirmwareUpdater::transmitFirmwareData(QSerialPort &serial, int lineCount, c
     QByteArray firmwareByteArray(reinterpret_cast<const char *>(&programBytes[0]), static_cast<int>(programBytes.size()));
 
     // Debug print the contents of firmwareByteArray
-        //    QString firmwareDebugString;
-        //    for (int i = 0; i < firmwareByteArray.size(); ++i) {
-        //        firmwareDebugString += QString::number(static_cast<uint8_t>(firmwareByteArray[i]), 16).rightJustified(2, '0').toUpper() + " ";
-        //    }
-        //    emit updateStatus("Contents of firmwareByteArray: " + firmwareDebugString);
+    //    QString firmwareDebugString;
+    //    for (int i = 0; i < firmwareByteArray.size(); ++i) {
+    //        firmwareDebugString += QString::number(static_cast<uint8_t>(firmwareByteArray[i]), 16).rightJustified(2, '0').toUpper() + " ";
+    //    }
+    //    emit updateStatus("Contents of firmwareByteArray: " + firmwareDebugString);
 
     bytesWritten = serial.write(firmwareByteArray);
 
@@ -134,7 +134,7 @@ bool FirmwareUpdater::transmitFirmwareData(QSerialPort &serial, int lineCount, c
 
 
     // close the serial port
-//    serial.close();
+    //    serial.close();
     emit updateStatus("--------- --------- ---------");
 
     return true;
@@ -160,10 +160,10 @@ bool FirmwareUpdater::updateFirmware(QSerialPort &serial) {
     bytesExtractor(in, programBytes);
     firmwareFile.close();
 
-//    QSerialPort serial;
-//    if (!initializeSerialCommunication(serial)) {
-//        return false;
-//    }
+    //    QSerialPort serial;
+    //    if (!initializeSerialCommunication(serial)) {
+    //        return false;
+    //    }
 
     return transmitFirmwareData(serial, lineCount, programBytes);
 }
