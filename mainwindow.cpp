@@ -57,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent)
     QRegularExpression peekHexRegExp("^[0-9A-Fa-f]{0,8}$");
     ui->peekAddressEdit->setValidator(new QRegularExpressionValidator(peekHexRegExp, this));
     connect(ui->peekButton, &QPushButton::clicked, this, [this]() {
-        onPeek(ui->peekAddressEdit->text());
+        onPeek(ui->peekAddressEdit->text(), true);
     });
 
     // fourth row
@@ -87,7 +87,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Connect the clicked signal of the poke button to perform the poke operation with current settings
     connect(ui->pokeButton, &QPushButton::clicked, this, [this]() {
-        onPoke(ui->pokeAddressEdit->text(), ui->pokeDataEdit->text(), ui->hexRadioButton->isChecked());
+        onPoke(ui->pokeAddressEdit->text(), ui->pokeDataEdit->text(), ui->hexRadioButton->isChecked(), true);
     });
 
     // call the function so that it initializes
@@ -239,10 +239,9 @@ void MainWindow::onDataSliderChanged() {
     bool debug = false;
 
     onPoke(addressStr, dataStr, isHex, debug);
-
-    // Regenerate and redraw waveforms with the new multiplier
 }
 
+// DOES NOT  GET USED:::::  CAN REMOVE LATER
 void MainWindow::onDataSliderInit() {
     QString addressStr = "ffffffc4";
     bool ok;
@@ -297,9 +296,9 @@ void MainWindow::onStartStopSampling() {
         ui->startSampling->setText("Start Sampling");
         logInfo("..... STOPPING .....");
 
-        if (timerId != -1) {
-            killTimer(timerId);
-        }
+//        if (timerId != -1) {
+//            killTimer(timerId);
+//        }
 
         // GO BIT
         QString addressStr = "FFFFFFB0";
@@ -747,22 +746,25 @@ void MainWindow::turnOnBoard() {
     addressStr = "fffffff0";
     onPoke(addressStr, dataStr, isHex, debug);
 
-    logInfo("Board turned on");
+    logInfo("attempted to turn on");
 }
 
 void MainWindow::turnOffBoard() {
+    // GO BIT
+    QString dataStr = "0";
+    QString addressStr = "ffffffb0";
     bool isHex = true;
     bool debug = false;
-    QString dataStr = "0";
+//    onPoke(addressStr, dataStr, isHex, debug);
 
-    QString addressStr = "fffffff4";
+
+    addressStr = "fffffff4";
     onPoke(addressStr, dataStr, isHex, debug);
-
 
     addressStr = "fffffff0";
     onPoke(addressStr, dataStr, isHex, debug);
 
-    logInfo("Board turned on");
+    logInfo("attempted to turn off");
 }
 
 // --------------------------------------------- FIRMWARE
@@ -821,38 +823,33 @@ void MainWindow::onClear(){
 void MainWindow::initializeSerialCommunication() {
     if (serial.isOpen()) {
 
-        disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
+        turnOffBoard();
+
         isSampling = false;
         ui->startSampling->setText("Start Sampling");
         logInfo("..... STOPPING .....");
-
-        // SPI
-        //        QString addressStr = "ffffffc4";
-        //        QString dataStr = "00300000";
-        //        bool isHex = true;
-        //        bool debug = false;
-        //        onPoke(addressStr, dataStr, isHex, debug);
+        disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
 
         ui->connectButton->setText("Connect");
         ui->connectButton->setStyleSheet("color: red; background-color: white;");
         logInfo("Disconnected from "+ serial.portName());
 
+
         serial.close();
+
     } else {
         serial.setPortName(ui->comPortComboBox->currentText()); // Ensure this is correct
         serial.setBaudRate(921600);
+
         if (serial.open(QIODevice::ReadWrite)) {
             ui->connectButton->setText("Disconnect");
             ui->connectButton->setStyleSheet("color: green; background-color: white;");
             logInfo("Connected to " + serial.portName());
-            // SPI
-            QString addressStr = "ffffffc4";
-            QString dataStr = "00300000";
-            bool isHex = true;
-            bool debug = false;
-            onPoke(addressStr, dataStr, isHex, debug);
-            //onDataSliderInit();
-            //QTimer::singleShot(0, this, &MainWindow::onDataSliderInit);
+
+            turnOnBoard();
+
+            // read SPI
+            // onDataSliderInit();
 
         } else {
             logInfo("Failed to open port " + serial.portName());
@@ -892,14 +889,13 @@ void MainWindow::onZoomIn() {
 MainWindow::~MainWindow()
 {
 
-    // stop the dma engine just in case
-    // GO BIT
-    QString addressStr = "FFFFFFB0";
-    QString dataStr = "0";
-    bool isHex = true;
-    bool debug = false;
-    onPoke(addressStr, dataStr, isHex, debug);
-    disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
+    if (serial.isOpen()) {
+        disconnect(&serial, &QSerialPort::readyRead, this, &MainWindow::Sampling);
+
+        turnOffBoard();
+
+        serial.close();
+    }
 
     delete ui;
 }

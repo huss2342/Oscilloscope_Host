@@ -81,7 +81,7 @@ private:
     WaveformData snapShotData;
     void  analyzeWaveformData();
     void  onDataSliderInit();
-    int timerId;
+    //int timerId;
     void smoothing();
     double calculateWaveformSmoothness();
     void smoothWaveformData(double windowSize);
@@ -104,6 +104,7 @@ private slots:
     void onPoke(const QString &addressStr, const QString &dataStr, bool isHex, bool debug = true);
     void onVersion();
     void turnOnBoard();
+    void turnOffBoard();
 
     void onZoomOut();
     void onDefaultZoom();
