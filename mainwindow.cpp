@@ -98,6 +98,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->version, &QPushButton::clicked, this, &MainWindow::onVersion);
     connect(ui->clearLog, &QPushButton::clicked, this, &MainWindow::onClear);
     connect(ui->turnonButton, &QPushButton::clicked, this, &MainWindow::turnOnBoard);
+    connect(ui->turnOffButton, &QPushButton::clicked, this, &MainWindow::turnOffBoard);
 
     // sixth row
     connect(ui->zoomoutButton, &QPushButton::clicked, this, &MainWindow::onZoomOut);
@@ -165,46 +166,6 @@ void MainWindow::smoothing() {
         logInfo("Error: Unable to determine the waveform period");
     }
 }
-
-//void MainWindow::smoothWaveformData(double windowSize) {
-//    int sigma = 10;
-
-//    if (waveformData.channel1.isEmpty()) {
-//        return;
-//    }
-
-//    QVector<double> smoothedData;
-//    int halfWindow = windowSize / 2;
-
-//    // Calculate the Gaussian weights
-//    QVector<double> weights(windowSize);
-//    double sum = 0;
-//    for (int i = 0; i < windowSize; ++i) {
-//        double x = i - halfWindow;
-//        weights[i] = exp(-0.5 * x * x / (sigma * sigma));
-//        sum += weights[i];
-//    }
-//    // Normalize the weights
-//    for (int i = 0; i < windowSize; ++i) {
-//        weights[i] /= sum;
-//    }
-
-//    for (int i = 0; i < waveformData.channel1.size(); ++i) {
-//        double weightedSum = 0;
-
-//        // Calculate the weighted sum of the samples within the window
-//        for (int j = i - halfWindow; j <= i + halfWindow; ++j) {
-//            if (j >= 0 && j < waveformData.channel1.size()) {
-//                weightedSum += waveformData.channel1[j] * weights[j - (i - halfWindow)];
-//            }
-//        }
-
-//        smoothedData.append(weightedSum);
-//    }
-
-//    // Replace the original waveform data with the smoothed data
-//    waveformData.channel1 = smoothedData;
-//}
 
 
 void MainWindow::smoothWaveformData(double windowSize) {
@@ -778,6 +739,21 @@ void MainWindow::turnOnBoard() {
     bool isHex = true;
     bool debug = false;
     QString dataStr = "ffffffff";
+
+    QString addressStr = "fffffff4";
+    onPoke(addressStr, dataStr, isHex, debug);
+
+
+    addressStr = "fffffff0";
+    onPoke(addressStr, dataStr, isHex, debug);
+
+    logInfo("Board turned on");
+}
+
+void MainWindow::turnOffBoard() {
+    bool isHex = true;
+    bool debug = false;
+    QString dataStr = "0";
 
     QString addressStr = "fffffff4";
     onPoke(addressStr, dataStr, isHex, debug);
