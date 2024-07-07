@@ -1,6 +1,7 @@
 # RichArduino V7.0 GUI
 
 This project implements a GUI application for controlling and interacting with a RichArduino V7.0 single-board microcontroller. The application provides features for firmware updates, real-time waveform visualization, and low-level microcontroller operations.
+Very quick demo of the software [here](https://www.youtube.com/watch?v=elPzWEfb8gQ).
 
 ## Features
 
