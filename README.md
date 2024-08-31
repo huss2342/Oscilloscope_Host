@@ -7,6 +7,9 @@ Very quick demo of the software [here](https://www.youtube.com/watch?v=elPzWEfb8
 
 ![GUI screenshot](https://media.licdn.com/dms/image/v2/D562DAQHrcZNQ19JP4Q/profile-treasury-image-shrink_800_800/profile-treasury-image-shrink_800_800/0/1719113969491?e=1725670800&v=beta&t=9TGOZm4Ht4_j-iGXrEOoD18HosJiPP12yuRWpnIJc84)
 
+## Video of the GUI in action
+https://youtu.be/3cigGloQTTI
+
 ## Features
 
 - Serial communication with RichArduino V7.0 board
