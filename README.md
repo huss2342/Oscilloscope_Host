@@ -82,4 +82,4 @@ Hussein Aljorani
 ## Acknowledgments
 
 - Thanks to the Qt community for providing excellent documentation and resources.
-- Thanks to [DR. Richard](https://www.linkedin.com/in/william-richard-b6b59a101/) for the huge support 
+- Thanks to [Dr. Richard](https://www.linkedin.com/in/william-richard-b6b59a101/) for the huge support 
